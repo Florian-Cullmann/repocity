@@ -12,6 +12,8 @@ test('renders WebGL, picks a real building, explores modules and regenerates det
   await expect(page.locator('canvas')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'repocity', exact: true })).toBeVisible()
   await expect(page.locator('.repo-title')).toContainText('Echte Daten')
+  await expect(page.locator('.app-footer, .topbar-center, .prototype-badge')).toHaveCount(0)
+  await expect(page.getByText(/DEIN CODE\. DEINE STADT\.|DEINE REPOSITORY.STADT/)).toHaveCount(0)
   await expect(page.locator('.city-stats strong').first()).toHaveText(
     String(snapshot.modules.length),
   )
@@ -42,7 +44,7 @@ test('renders WebGL, picks a real building, explores modules and regenerates det
   await expect(details.locator('.module-metrics strong').first()).toHaveText(
     snapshot.modules
       .find((module) => module.id === 'src/city/generateCity.ts')!
-      .metrics.lines.toLocaleString('de-DE'),
+      .metrics.lines!.toLocaleString('de-DE'),
   )
   await page.screenshot({
     animations: 'disabled',
@@ -52,6 +54,7 @@ test('renders WebGL, picks a real building, explores modules and regenerates det
   await page.getByRole('button', { name: 'Stadt generieren' }).click()
   await expect(details).not.toBeVisible()
   await expect(page.locator('.repo-title')).toContainText('Mock City')
+  await page.screenshot({ animations: 'disabled', path: 'test-results/repocity-demo.png' })
   await page.getByLabel('Oder ein Modul direkt erkunden').selectOption('core/auth')
   await expect(page.getByRole('heading', { name: 'auth', exact: true })).toBeVisible()
   await page.screenshot({ animations: 'disabled', path: 'test-results/repocity-selected.png' })

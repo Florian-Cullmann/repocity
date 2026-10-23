@@ -7,6 +7,8 @@ import { createGeometry } from './primitives'
 export function compileCity(city: CityLayout) {
   const geometry = createGeometry()
   addEnvironment(geometry, city)
-  city.buildings.forEach((building) => addBuilding(geometry, building))
+  city.buildings.forEach((building) =>
+    addBuilding(geometry, building, city.buildings.length > 1500),
+  )
   return geometry
 }

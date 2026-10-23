@@ -78,6 +78,7 @@ function Batch({
       object.scale.set(...instance.scale)
       object.rotation.set(...(instance.rotation ?? [0, 0, 0]))
       object.updateMatrix()
+      if (instance.shear) object.matrix.elements[8] += instance.shear * instance.scale[2]
       mesh.setMatrixAt(index, object.matrix)
       color.set(instance.color)
       if (
@@ -120,13 +121,14 @@ function BuildingPicking({
   useLayoutEffect(() => {
     const object = new Object3D()
     city.buildings.forEach((building, index) => {
-      const height = building.height + 1.4
+      const height = building.height + 2.8
       object.position.set(
         building.position[0],
         building.position[1] + height / 2,
         building.position[2],
       )
-      object.scale.set(building.width + 0.4, height, building.depth + 0.4)
+      object.scale.set(building.width + 0.6, height, building.depth + 0.6)
+      object.rotation.set(0, building.rotation, 0)
       object.updateMatrix()
       ref.current!.setMatrixAt(index, object.matrix)
     })
@@ -233,7 +235,7 @@ function SceneContent({ city, selectedId, onSelect, cameraAction, focusDistrict,
       <ambientLight intensity={0.7} />
       <hemisphereLight args={['#fff7e0', '#71877a', 1.3]} />
       <directionalLight
-        position={[-40, 70, 30]}
+        position={[-city.size * 0.5, Math.max(70, city.size * 0.9), city.size * 0.4]}
         intensity={2.7}
         castShadow
         shadow-mapSize={[2048, 2048]}
@@ -241,7 +243,7 @@ function SceneContent({ city, selectedId, onSelect, cameraAction, focusDistrict,
         shadow-camera-right={city.size * 0.8}
         shadow-camera-top={city.size * 0.8}
         shadow-camera-bottom={-city.size * 0.8}
-        shadow-camera-far={400}
+        shadow-camera-far={city.size * 4 + 200}
         shadow-normalBias={0.16}
         shadow-bias={-0.0002}
       />
@@ -263,7 +265,10 @@ function SceneContent({ city, selectedId, onSelect, cameraAction, focusDistrict,
         <BuildingPicking city={city} onSelect={onSelect} onHover={setHoveredId} />
       )}
       {active && (
-        <group position={[active.position[0], 0.56, active.position[2]]}>
+        <group
+          position={[active.position[0], 0.56, active.position[2]]}
+          rotation={[0, active.rotation, 0]}
+        >
           {[-1, 1].map((sign) => (
             <group key={sign}>
               <mesh position={[sign * (active.width / 2 + 0.28), 0, 0]}>
@@ -315,7 +320,12 @@ export default function CityScene(props: Props) {
         shadows
         frameloop="demand"
         dpr={[1, 1.75]}
-        camera={{ position: [100, 95, 120], near: 0.1, far: 2000, zoom: 7 }}
+        camera={{
+          position: [100, 95, 120],
+          near: 0.1,
+          far: Math.max(2000, props.city.size * 5),
+          zoom: 7,
+        }}
         gl={{ antialias: true, alpha: true, powerPreference: 'high-performance' }}
         onPointerMissed={(event) => {
           if (event.type === 'click') props.onSelect(null)

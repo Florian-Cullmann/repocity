@@ -6,6 +6,7 @@ export interface Instance {
   scale: Vec3
   color: string
   rotation?: Vec3
+  shear?: number
   buildingId?: string
 }
 export type CityGeometry = Record<Shape, Instance[]>
@@ -22,9 +23,10 @@ export type AddPrimitive = (
   scale: Vec3,
   color: string,
   rotation?: Vec3,
+  shear?: number,
 ) => void
 
 export function primitiveWriter(geometry: CityGeometry, buildingId?: string): AddPrimitive {
-  return (shape, position, scale, color, rotation) =>
-    geometry[shape].push({ position, scale, color, rotation, buildingId })
+  return (shape, position, scale, color, rotation, shear) =>
+    geometry[shape].push({ position, scale, color, rotation, shear, buildingId })
 }

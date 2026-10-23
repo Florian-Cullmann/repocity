@@ -7,7 +7,8 @@ export interface SoftwareModule {
   language: string
   description: string
   metrics: {
-    lines: number
+    lines: number | null
+    bytes?: number
     files: number
     dependencies: number | null
     coverage: number | null
@@ -27,6 +28,7 @@ export interface RepositorySnapshot {
   url?: string
   revision?: { branch: string; commit: string }
   notice?: string
+  sizeMetric?: 'bytes' | 'lines'
   districts: District[]
   modules: SoftwareModule[]
 }

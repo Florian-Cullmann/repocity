@@ -79,8 +79,17 @@ function App() {
   const visibleModules = repository.modules.filter(
     (module) => !focusDistrict || module.districtId === focusDistrict,
   )
-  const totalLines = repository.modules.reduce((sum, module) => sum + module.metrics.lines, 0)
+  const byteSized = repository.sizeMetric === 'bytes'
+  const totalSize = repository.modules.reduce(
+    (sum, module) => sum + (byteSized ? (module.metrics.bytes ?? 0) : (module.metrics.lines ?? 0)),
+    0,
+  )
   const totalFiles = repository.modules.reduce((sum, module) => sum + module.metrics.files, 0)
+  const sizeUnit =
+    byteSized && totalSize > 0 ? Math.min(3, Math.floor(Math.log2(totalSize) / 10)) : 0
+  const sizeLabel = byteSized
+    ? `${(totalSize / 1024 ** sizeUnit).toLocaleString('de-DE', { maximumFractionDigits: 1 })} ${['B', 'KiB', 'MiB', 'GiB'][sizeUnit]}`
+    : format.format(totalSize)
   const onReady = useCallback(() => setReady(true), [])
   const camera = (type: CameraAction['type']) =>
     setCameraAction((action) => ({ type, sequence: action.sequence + 1 }))
@@ -137,7 +146,7 @@ function App() {
         signal: controller.signal,
         onProgress: (loaded, total) => {
           if (activeImport.current === controller && !controller.signal.aborted)
-            setImportProgress(`${loaded} von ${total} Quelldateien gelesen …`)
+            setImportProgress(`${loaded} von ${total} Quelldateien erfasst …`)
         },
       })
       if (activeImport.current === controller && !controller.signal.aborted)
@@ -167,11 +176,7 @@ function App() {
             <sup>β</sup>
           </span>
         </a>
-        <div className="topbar-center">
-          <span className="status-dot" /> CODE WIRD STADT
-        </div>
         <div className="topbar-actions">
-          <span className="prototype-badge">PROTOTYP 0.1</span>
           <a
             href="https://github.com/Florian-Cullmann/repocity"
             target="_blank"
@@ -196,9 +201,6 @@ function App() {
         </button>
         <aside id="explorer-sidebar" className={`sidebar ${sidebarOpen ? 'is-open' : ''}`}>
           <div className="sidebar-intro">
-            <div className="eyebrow">
-              <span /> DEIN CODE. DEINE STADT.
-            </div>
             <h1>
               Eine neue
               <br />
@@ -397,16 +399,11 @@ function App() {
 
         <section className="city-stage" aria-label="Interaktive 3D-Stadt" aria-busy={pending}>
           <div className="scene-heading">
-            <div className="eyebrow">
-              <span className="status-dot" /> DEINE REPOSITORY-STADT
-            </div>
             <div className="repo-title">
               <h2>{repository.name.split('/').at(-1)}</h2>
               <span>
                 {repository.source === 'github'
-                  ? repository.notice
-                    ? 'GitHub · Auswahl'
-                    : 'GitHub'
+                  ? 'GitHub'
                   : repository.source === 'local'
                     ? 'Echte Daten'
                     : 'Mock City'}
@@ -437,8 +434,8 @@ function App() {
             </div>
             <div>
               <ArrowDownUp size={16} />
-              <strong>{format.format(totalLines)}</strong>
-              <span>Codezeilen</span>
+              <strong>{sizeLabel}</strong>
+              <span>{byteSized ? 'Quellcode' : 'Codezeilen'}</span>
             </div>
           </div>
           <div className="canvas-wrap" data-testid="city-canvas" data-ready={ready}>
@@ -571,24 +568,6 @@ function App() {
           )}
         </section>
       </main>
-      <footer className="app-footer">
-        <span>
-          <span className="status-dot" /> Eine Stadt voller Möglichkeiten.
-        </span>
-        <span>
-          Gebäudehöhe = Codeumfang <span>·</span> Farbe = Stadtviertel <span>·</span>
-          {repository.source === 'github'
-            ? repository.notice
-              ? 'GitHub · Auswahl'
-              : 'GitHub-Quelldaten'
-            : repository.source === 'local'
-              ? 'Lokale Quelldaten'
-              : '100 % Mockdaten'}
-        </span>
-        <span>
-          MADE FOR EXPLORING <span>↗</span>
-        </span>
-      </footer>
     </div>
   )
 }

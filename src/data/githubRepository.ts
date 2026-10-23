@@ -1,13 +1,12 @@
 import type { RepositorySnapshot, SoftwareModule } from '../domain/repository'
 import {
   createSourceRepository,
-  MAX_SOURCE_BYTES,
+  describeSourceFile,
   measureSourceFile,
   sourceLanguage,
 } from './sourceRepository.mjs'
 
-export const MAX_GITHUB_FILES = 768
-const MAX_TOTAL_BYTES = 32 * 1024 * 1024
+export const MAX_MEASUREMENT_BYTES = 8 * 1024 * 1024
 const IMPORT_TIMEOUT_MS = 120_000
 const INVALID_REPOSITORY = 'Bitte eine GitHub-Repository-URL oder owner/repository eingeben.'
 
@@ -80,9 +79,9 @@ function httpError(response: Response, file = false): Error {
 }
 
 async function readSource(response: Response, signal: AbortSignal): Promise<string> {
-  if (Number(response.headers.get('content-length')) > MAX_SOURCE_BYTES) {
+  if (Number(response.headers.get('content-length')) > MAX_MEASUREMENT_BYTES) {
     await response.body?.cancel()
-    throw new Error('Eine Quelldatei überschreitet das Importlimit von 1 MiB.')
+    throw new Error('Eine Quelldatei überschreitet das Messlimit von 8 MiB.')
   }
   const reader = response.body?.getReader()
   if (!reader) throw new Error('GitHub hat keinen Dateiinhalt geliefert. Bitte erneut versuchen.')
@@ -95,8 +94,8 @@ async function readSource(response: Response, signal: AbortSignal): Promise<stri
       const { done, value } = await reader.read()
       if (done) break
       size += value.byteLength
-      if (size > MAX_SOURCE_BYTES)
-        throw new Error('Eine Quelldatei überschreitet das Importlimit von 1 MiB.')
+      if (size > MAX_MEASUREMENT_BYTES)
+        throw new Error('Eine Quelldatei überschreitet das Messlimit von 8 MiB.')
       text.push(decoder.decode(value, { stream: true }))
     }
     text.push(decoder.decode())
@@ -107,7 +106,7 @@ async function readSource(response: Response, signal: AbortSignal): Promise<stri
   }
 }
 
-/** Three API requests plus bounded, concurrent raw downloads; no server or token required. */
+/** Import the complete eligible tree in three API requests, without raw downloads. */
 export async function fetchGitHubRepository(
   input: string,
   options: ImportOptions = {},
@@ -123,15 +122,15 @@ export async function fetchGitHubRepository(
     timedOut = true
     controller.abort()
   }, IMPORT_TIMEOUT_MS)
-  const request = async (url: string, api = true) => {
+  const request = async (url: string) => {
     signal.throwIfAborted()
     const response = await fetch(url, {
       signal,
       credentials: 'omit',
       referrerPolicy: 'no-referrer',
-      headers: api ? { Accept: 'application/vnd.github+json' } : undefined,
+      headers: { Accept: 'application/vnd.github+json' },
     })
-    if (!response.ok) throw httpError(response, !api)
+    if (!response.ok) throw httpError(response)
     return response
   }
   try {
@@ -170,47 +169,20 @@ export async function fetchGitHubRepository(
           typeof entry.path === 'string' &&
           sourceLanguage(entry.path) &&
           Number.isSafeInteger(entry.size) &&
-          entry.size >= 0 &&
-          entry.size <= MAX_SOURCE_BYTES,
+          entry.size >= 0,
       )
       .sort((a: TreeEntry, b: TreeEntry) => a.path.localeCompare(b.path, 'en'))
     if (files.length === 0)
       throw new Error('Keine unterstützten Quelldateien in diesem Repository gefunden.')
-    // Sample across the sorted tree so large repositories retain multiple areas of the project.
-    const count = Math.min(files.length, MAX_GITHUB_FILES)
-    let bytes = 0
-    const selected: TreeEntry[] = []
-    for (let index = 0; index < count; index++) {
-      const file = files[Math.floor((index * files.length) / count)]
-      if (bytes + file.size > MAX_TOTAL_BYTES) continue
-      selected.push(file)
-      bytes += file.size
-    }
-    const modules: SoftwareModule[] = []
-    let next = 0
-    let loaded = 0
-    options.onProgress?.(0, selected.length)
-    const worker = async () => {
-      while (next < selected.length) {
-        signal.throwIfAborted()
-        const file = selected[next++]
-        const path = file.path.split('/').map(encodeURIComponent).join('/')
-        const response = await request(
-          `https://raw.githubusercontent.com/${name}/${commit}/${path}`,
-          false,
-        )
-        const module = measureSourceFile(file.path, await readSource(response, signal))
-        if (module) modules.push(module)
-        options.onProgress?.(++loaded, selected.length)
-      }
-    }
-    await Promise.all(Array.from({ length: Math.min(6, selected.length) }, worker))
     signal.throwIfAborted()
+    const modules = files.map((file) => describeSourceFile(file.path, file.size)!)
     const snapshot = createSourceRepository(name, 'github', modules)
     snapshot.url = `https://github.com/${name}`
     snapshot.revision = { branch: metadata.default_branch, commit }
-    if (modules.length < files.length)
-      snapshot.notice = `${modules.length} von ${files.length} geeigneten Quelldateien angezeigt. Für große Repositories wird eine Auswahl geladen (maximal ${MAX_GITHUB_FILES} Dateien / 32 MiB); Binärdateien werden ausgelassen.`
+    snapshot.sizeMetric = 'bytes'
+    snapshot.notice = `Alle ${modules.length.toLocaleString('de-DE')} Quelldateien der unterstützten Dateitypen. Gebäudehöhe = Dateigröße. Codezeilen werden beim Öffnen eines Gebäudes gemessen.`
+    options.onProgress?.(modules.length, modules.length)
+    signal.throwIfAborted()
     return snapshot
   } catch (error) {
     if (timedOut)
@@ -226,6 +198,58 @@ export async function fetchGitHubRepository(
   } finally {
     clearTimeout(timer)
     options.signal?.removeEventListener('abort', abort)
+    controller.abort()
+  }
+}
+
+/** Read a single selected file at the imported commit; never execute repository code. */
+export async function fetchGitHubFileLines(
+  repository: RepositorySnapshot,
+  module: SoftwareModule,
+  signal?: AbortSignal,
+): Promise<number> {
+  const name = parseGitHubRepository(repository.name)
+  const commit = repository.revision?.commit
+  if (
+    repository.source !== 'github' ||
+    !commit ||
+    !/^[a-f\d]{40,64}$/i.test(commit) ||
+    !sourceLanguage(module.path)
+  )
+    throw new Error('Die Quelldatei kann diesem GitHub-Stand nicht zugeordnet werden.')
+  if ((module.metrics.bytes ?? 0) > MAX_MEASUREMENT_BYTES)
+    throw new Error('Datei größer als 8 MiB. Codezeilen können hier nicht gemessen werden.')
+  const controller = new AbortController()
+  const abort = () => controller.abort(signal?.reason)
+  signal?.addEventListener('abort', abort, { once: true })
+  if (signal?.aborted) abort()
+  let timedOut = false
+  const timer = setTimeout(() => {
+    timedOut = true
+    controller.abort()
+  }, 30_000)
+  try {
+    controller.signal.throwIfAborted()
+    const path = module.path.split('/').map(encodeURIComponent).join('/')
+    const response = await fetch(`https://raw.githubusercontent.com/${name}/${commit}/${path}`, {
+      signal: controller.signal,
+      credentials: 'omit',
+      referrerPolicy: 'no-referrer',
+    })
+    if (!response.ok) throw httpError(response, true)
+    const measured = measureSourceFile(module.path, await readSource(response, controller.signal))
+    if (!measured || measured.metrics.lines === null)
+      throw new Error('Die Datei enthält Binärdaten. Codezeilen können nicht gemessen werden.')
+    return measured.metrics.lines
+  } catch (error) {
+    if (timedOut) throw new Error('Die Messung dauert zu lange. Bitte erneut versuchen.')
+    if (signal?.aborted) throw signal.reason
+    if (error instanceof TypeError)
+      throw new Error('Quelldatei konnte nicht geladen werden. Bitte die Verbindung prüfen.')
+    throw error
+  } finally {
+    clearTimeout(timer)
+    signal?.removeEventListener('abort', abort)
     controller.abort()
   }
 }

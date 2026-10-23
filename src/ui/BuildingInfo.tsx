@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react'
+import { fetchGitHubFileLines } from '../data/githubRepository'
 import { ArrowUpRight, Box, FileCode2, Layers3, Network, X } from 'lucide-react'
 import type { District, RepositorySnapshot, SoftwareModule } from '../domain/repository'
 
@@ -12,6 +14,44 @@ export function BuildingInfo({
   repository: RepositorySnapshot
   onClose: () => void
 }) {
+  const cache = useRef(new Map<string, number>())
+  const key = `${repository.name}:${repository.revision?.commit}:${module.id}`
+  const [measurement, setMeasurement] = useState<{
+    key: string
+    lines?: number
+    error?: string
+  } | null>(null)
+  const [retry, setRetry] = useState(0)
+  useEffect(() => {
+    if (repository.source !== 'github' || module.metrics.lines !== null) return
+    const cached = cache.current.get(key)
+    if (cached !== undefined) {
+      setMeasurement({ key, lines: cached })
+      return
+    }
+    const controller = new AbortController()
+    setMeasurement({ key })
+    // Skip a selection already cleaned up by StrictMode or a rapid file change.
+    queueMicrotask(() => {
+      if (controller.signal.aborted) return
+      fetchGitHubFileLines(repository, module, controller.signal)
+        .then((lines) => {
+          if (controller.signal.aborted) return
+          cache.current.set(key, lines)
+          setMeasurement({ key, lines })
+        })
+        .catch((error: unknown) => {
+          if (!controller.signal.aborted)
+            setMeasurement({
+              key,
+              error: error instanceof Error ? error.message : 'Die Messung ist fehlgeschlagen.',
+            })
+        })
+    })
+    return () => controller.abort()
+  }, [key, repository, module, retry])
+  const current = measurement?.key === key ? measurement : null
+  const lines = module.metrics.lines ?? current?.lines
   return (
     <aside className="building-info panel" aria-label="Gebäudeinformationen" aria-live="polite">
       <div className="info-eyebrow">
@@ -43,7 +83,13 @@ export function BuildingInfo({
       <div className="module-metrics">
         <div>
           <FileCode2 size={15} />
-          <strong>{module.metrics.lines.toLocaleString('de-DE')}</strong>
+          <strong className={lines === undefined ? 'unavailable-metric' : ''}>
+            {lines !== undefined
+              ? lines.toLocaleString('de-DE')
+              : current?.error
+                ? 'Nicht gemessen'
+                : 'Wird gemessen …'}
+          </strong>
           <span>Codezeilen</span>
         </div>
         <div>
@@ -59,6 +105,18 @@ export function BuildingInfo({
           <span>Abhängigkeiten</span>
         </div>
       </div>
+      {repository.sizeMetric === 'bytes' && (
+        <p className="measurement-note">
+          Gebäudehöhe: {(module.metrics.bytes ?? 0).toLocaleString('de-DE')} Bytes.
+          {lines !== undefined && ' Codezeilen: nichtleere Zeilen einschließlich Kommentaren.'}
+        </p>
+      )}
+      {current?.error && (
+        <p className="measurement-error" role="status">
+          {current.error}{' '}
+          <button onClick={() => setRetry((value) => value + 1)}>Erneut messen</button>
+        </p>
+      )}
       <div className="coverage-label">
         <span>Testabdeckung</span>
         <strong>

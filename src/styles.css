@@ -136,17 +136,7 @@ button:active {
   height: 22px;
   background: #b1c493;
 }
-.topbar-center {
-  font-size: 9px;
-  letter-spacing: 2.3px;
-  color: #7f8c7d;
-  display: flex;
-  align-items: center;
-  gap: 9px;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-}
+
 .status-dot {
   display: inline-block;
   width: 6px;
@@ -160,14 +150,7 @@ button:active {
   align-items: center;
   gap: 25px;
 }
-.prototype-badge {
-  font-size: 9px;
-  letter-spacing: 1.1px;
-  color: #829073;
-  border: 1px solid #e1e6d6;
-  padding: 6px 9px;
-  border-radius: 5px;
-}
+
 .github-link {
   font-size: 11px;
   display: flex;
@@ -195,20 +178,7 @@ button:active {
   scrollbar-width: thin;
   z-index: 3;
 }
-.eyebrow {
-  font-size: 8px;
-  letter-spacing: 1.7px;
-  font-weight: 650;
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  color: #78906f;
-}
-.sidebar-intro .eyebrow > span {
-  width: 12px;
-  height: 1px;
-  background: #829c6c;
-}
+
 .sidebar h1 {
   font-family: Manrope, sans-serif;
   font-size: 37px;
@@ -498,11 +468,7 @@ button:active {
   z-index: 1;
   pointer-events: none;
 }
-.scene-heading .eyebrow {
-  font-size: 7px;
-  letter-spacing: 1.5px;
-  color: #75876a;
-}
+
 .scene-heading .status-dot {
   width: 5px;
   height: 5px;
@@ -924,36 +890,7 @@ button:active {
   font-weight: 550;
   color: #5c7551;
 }
-.app-footer {
-  height: 35px;
-  flex-shrink: 0;
-  padding: 0 30px;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  background: #fbfcf7;
-  border-top: 1px solid var(--border);
-  font-size: 7px;
-  color: #8c9981;
-}
-.app-footer > span:first-child {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.app-footer .status-dot {
-  width: 4px;
-  height: 4px;
-  background: #a4b491;
-}
-.app-footer > span > span:not(.status-dot) {
-  margin: 0 8px;
-  color: #b4beaa;
-}
-.app-footer > span:last-child {
-  font-size: 6px;
-  letter-spacing: 1px;
-}
+
 .loading-city,
 .scene-error {
   position: absolute;
@@ -1079,9 +1016,6 @@ button:active {
   .module-select-label {
     margin-top: 10px;
   }
-  .app-footer {
-    height: 28px;
-  }
 }
 @media (max-width: 1100px) and (min-width: 901px) {
   .sidebar {
@@ -1110,9 +1044,7 @@ button:active {
   .scene-heading {
     left: 23px;
   }
-  .topbar-center {
-    display: none;
-  }
+
   .explore-hint {
     left: 20px;
     padding: 12px;
@@ -1141,10 +1073,6 @@ button:active {
   }
   .brand {
     font-size: 24px;
-  }
-  .topbar-center,
-  .prototype-badge {
-    display: none;
   }
   .topbar-actions {
     gap: 0;
@@ -1185,9 +1113,7 @@ button:active {
   .sidebar-intro p {
     font-size: 10px;
   }
-  .sidebar .eyebrow {
-    font-size: 7px;
-  }
+
   .sidebar-footer {
     display: none;
   }
@@ -1239,13 +1165,7 @@ button:active {
     right: 20px;
     width: 270px;
   }
-  .app-footer {
-    padding: 0 20px;
-    height: 29px;
-  }
-  .app-footer > span:last-child {
-    display: none;
-  }
+
   .explore-hint {
     left: 20px;
     bottom: 65px;
@@ -1284,10 +1204,7 @@ button:active {
     top: 70px;
     left: 19px;
   }
-  .scene-heading .eyebrow {
-    font-size: 6px;
-    letter-spacing: 1px;
-  }
+
   .repo-title h2 {
     font-size: 26px;
     max-width: 150px;
@@ -1378,22 +1295,7 @@ button:active {
   .scene-bottom button {
     font-size: 8px;
   }
-  .app-footer {
-    height: 26px;
-    font-size: 6px;
-    padding: 0 16px;
-  }
-  .app-footer > span:nth-child(2) {
-    font-size: 0;
-  }
-  .app-footer > span:nth-child(2) > span {
-    display: none;
-  }
-  .app-footer > span:nth-child(2)::after {
-    content: '100 % MOCKDATEN';
-    font-size: 6px;
-    letter-spacing: 0.8px;
-  }
+
   .filter-pill {
     top: 165px;
     left: 19px;
@@ -1467,4 +1369,17 @@ button:active {
   .sidebar-footer {
     display: none;
   }
+}
+
+.measurement-note,
+.measurement-error {
+  font-size: 10px;
+  line-height: 1.6;
+  color: var(--muted);
+}
+.measurement-error button {
+  padding: 0;
+  background: transparent;
+  color: var(--green);
+  text-decoration: underline;
 }

@@ -44,7 +44,12 @@ test('loads a public repository from its URL and links measured modules to the i
   page,
 }) => {
   const errors: string[] = []
+  const downloads: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
+  page.on('request', (request) => {
+    if (request.url().startsWith('https://raw.githubusercontent.com/'))
+      downloads.push(request.url())
+  })
   let release!: () => void
   const metadata = new Promise<void>((resolve) => {
     release = resolve
@@ -65,6 +70,9 @@ test('loads a public repository from its URL and links measured modules to the i
   await expect(page.locator('.scene-heading')).toContainText('main · aaaaaaa')
   await expect(page.locator('.city-stats strong').first()).toHaveText('2')
   await expect(page.locator('#module-select option')).toHaveCount(3)
+  expect(downloads).toEqual([])
+  await expect(page.locator('.import-notice')).toContainText('Alle 2 Quelldateien')
+  await expect(page.locator('.city-stats')).toContainText('Quellcode')
   await page.getByLabel('Oder ein Modul direkt erkunden').selectOption('src/city/grow.ts')
   const details = page.getByLabel('Gebäudeinformationen', { exact: true })
   await expect(details.locator('.module-metrics strong').first()).toHaveText('2')
@@ -73,6 +81,12 @@ test('loads a public repository from its URL and links measured modules to the i
     'href',
     `https://github.com/example/garden/blob/${commit}/src/city/grow.ts`,
   )
+  expect(downloads).toHaveLength(1)
+  await page.getByLabel('Oder ein Modul direkt erkunden').selectOption('src/ui/Button.tsx')
+  await expect(details.locator('.module-metrics strong').first()).toHaveText('1')
+  await page.getByLabel('Oder ein Modul direkt erkunden').selectOption('src/city/grow.ts')
+  await expect(details.locator('.module-metrics strong').first()).toHaveText('2')
+  expect(downloads).toHaveLength(2)
   await page.screenshot({ animations: 'disabled', path: 'test-results/repocity-github.png' })
 
   // A failed replacement keeps the last successfully imported city and its selection intact.
@@ -148,4 +162,61 @@ test('loads a GitHub city on mobile and closes the explorer after success', asyn
     true,
   )
   await page.screenshot({ animations: 'disabled', path: 'test-results/repocity-github-mobile.png' })
+})
+
+test('shows all 5905 files without source downloads and measures errors without losing buildings', async ({
+  page,
+}) => {
+  const errors: string[] = []
+  const downloads: string[] = []
+  page.on('pageerror', (error) => errors.push(error.message))
+  page.on('request', (request) => {
+    if (request.url().startsWith('https://raw.githubusercontent.com/'))
+      downloads.push(request.url())
+  })
+  await mockGitHub(page)
+  await page.route('https://api.github.com/**/git/trees/**', (route) =>
+    route.fulfill({
+      json: {
+        truncated: false,
+        tree: Array.from({ length: 5905 }, (_, i) => ({
+          path: `src/${i < 5000 ? 'core' : 'ui'}/file-${String(i).padStart(4, '0')}.ts`,
+          size: (i + 1) * 100,
+          mode: '100644',
+          type: 'blob',
+        })),
+      },
+    }),
+  )
+  let failed = true
+  await page.route('https://raw.githubusercontent.com/**', (route) =>
+    route.fulfill(
+      failed
+        ? { status: 503, body: 'Unavailable' }
+        : { contentType: 'text/plain', body: 'one\n\ntwo\n' },
+    ),
+  )
+  await page.goto('/')
+  await expect(page.getByTestId('city-canvas')).toHaveAttribute('data-ready', 'true')
+  await page.locator('#repository').fill('example/garden')
+  await page.getByRole('button', { name: 'Repository laden', exact: true }).click()
+  await expect(page.locator('.city-stats strong').first()).toHaveText('5905', { timeout: 30_000 })
+  await expect(page.locator('#module-select option')).toHaveCount(5906)
+  await expect(page.getByRole('button', { name: /src\/core.*5000/ })).toBeVisible()
+  await expect(page.getByRole('button', { name: /src\/ui.*905/ })).toBeVisible()
+  expect(downloads).toEqual([])
+  await page.getByLabel('Oder ein Modul direkt erkunden').selectOption('src/ui/file-5904.ts')
+  const details = page.getByLabel('Gebäudeinformationen', { exact: true })
+  await expect(details.getByRole('heading', { name: 'file-5904.ts', exact: true })).toBeVisible()
+  await expect(details.getByRole('status')).toContainText('HTTP 503')
+  await expect(details.locator('.module-metrics strong').first()).toHaveText('Nicht gemessen')
+  failed = false
+  await details.getByRole('button', { name: 'Erneut messen' }).click()
+  await expect(details.locator('.module-metrics strong').first()).toHaveText('2')
+  await expect(page.locator('.city-stats strong').first()).toHaveText('5905')
+  await page.screenshot({
+    animations: 'disabled',
+    path: 'test-results/repocity-complete-repository.png',
+  })
+  expect(errors).toEqual([])
 })

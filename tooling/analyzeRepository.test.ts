@@ -60,7 +60,7 @@ describe('local repository analysis', () => {
       language: 'CSS',
       metrics: { lines: 3 },
     })
-    expect(snapshot.modules.reduce((sum, module) => sum + module.metrics.lines, 0)).toBe(10)
+    expect(snapshot.modules.reduce((sum, module) => sum + (module.metrics.lines ?? 0), 0)).toBe(10)
     const serialized = JSON.stringify(snapshot)
     expect(serialized).not.toContain(root)
     expect(serialized).not.toContain('export const')

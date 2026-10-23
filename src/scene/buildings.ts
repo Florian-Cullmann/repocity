@@ -1,9 +1,23 @@
 import type { CityBuilding } from '../city/types'
-import { primitiveWriter, type CityGeometry } from './primitives'
+import { primitiveWriter, type AddPrimitive, type CityGeometry } from './primitives'
 
 /** Architectural vocabulary, independent of repository parsing and layout rules. */
-export function addBuilding(geometry: CityGeometry, building: CityBuilding) {
-  const add = primitiveWriter(geometry, building.id)
+export function addBuilding(geometry: CityGeometry, building: CityBuilding, compact = false) {
+  const write = primitiveWriter(geometry, building.id)
+  const angle = building.rotation
+  const c = Math.cos(angle),
+    s = Math.sin(angle)
+  const add: AddPrimitive = (shape, position, scale, color, rotation) => {
+    const dx = position[0] - building.position[0],
+      dz = position[2] - building.position[2]
+    write(
+      shape,
+      [building.position[0] + c * dx + s * dz, position[1], building.position[2] - s * dx + c * dz],
+      scale,
+      color,
+      [rotation?.[0] ?? 0, (rotation?.[1] ?? 0) + angle, rotation?.[2] ?? 0],
+    )
+  }
   const [x, y, z] = building.position
   const { width: w, depth: d, height: h, floors, color, style } = building
   const cream = '#fff1d5'
@@ -12,6 +26,33 @@ export function addBuilding(geometry: CityGeometry, building: CityBuilding) {
   const setback = style === 'terrace'
   const round = style === 'tower'
   add('box', [x, y + 0.12, z], [w + 0.5, 0.24, d + 0.5], '#cec9b4')
+  // Large repositories retain every building, with fewer facade instances per file.
+  if (compact) {
+    add(round ? 'cylinder' : 'box', [x, y + h / 2, z], [w, h, d], color)
+    for (const side of [-1, 1]) {
+      add('box', [x, y + h / 2, z + side * (d / 2 + 0.02)], [w * 0.65, h * 0.8, 0.04], glass)
+      add('box', [x + side * (w / 2 + 0.02), y + h / 2, z], [0.04, h * 0.8, d * 0.65], glass)
+    }
+    for (let f = 2; f < floors; f += 3) {
+      add(round ? 'cylinder' : 'box', [x, y + f * 1.12, z], [w + 0.1, 0.13, d + 0.1], slab)
+    }
+    if (style === 'gable' && floors < 9) {
+      add('roof', [x, y + h + 0.7, z], [(w + 0.4) * 1.42, 1.4, (d + 0.4) * 1.42], '#a96459', [
+        0,
+        Math.PI / 4,
+        0,
+      ])
+    } else {
+      add(round ? 'cylinder' : 'box', [x, y + h + 0.08, z], [w + 0.2, 0.18, d + 0.2], cream)
+      add(
+        'box',
+        [x, y + h + 0.2, z],
+        [w - 0.3, 0.08, d - 0.3],
+        building.roofGarden ? '#8da863' : '#768c8e',
+      )
+    }
+    return
+  }
   // Octagonal apartment towers contrast with townhouses and stepped offices.
   if (round) {
     for (let f = 0; f < floors; f++) {

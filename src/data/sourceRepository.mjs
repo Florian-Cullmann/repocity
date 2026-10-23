@@ -79,6 +79,27 @@ function districtId(path) {
 }
 
 /**
+ * Describe every eligible file from tree metadata, without downloading its contents.
+ * @param {string} path
+ * @param {number} bytes
+ * @returns {import('../domain/repository').SoftwareModule | null}
+ */
+export function describeSourceFile(path, bytes) {
+  const language = sourceLanguage(path)
+  if (!language) return null
+  const district = districtId(path)
+  return {
+    id: path,
+    name: path.split('/').at(-1) ?? path,
+    path,
+    districtId: district,
+    language,
+    description: `Quelldatei aus ${district === '.' ? 'Projektwurzel' : district}.`,
+    metrics: { lines: null, bytes, files: 1, dependencies: null, coverage: null },
+  }
+}
+
+/**
  * @param {string} path
  * @param {string} content
  * @returns {import('../domain/repository').SoftwareModule | null}
