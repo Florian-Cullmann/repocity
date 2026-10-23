@@ -267,6 +267,22 @@ button:active {
   line-height: 1.7;
   color: #718267;
 }
+.import-progress,
+.import-notice {
+  font-size: 10px;
+  line-height: 1.6;
+  color: #50614e;
+}
+.import-progress button {
+  background: #edf0e4;
+  border-radius: 5px;
+  padding: 6px 9px;
+}
+.import-notice {
+  padding: 10px;
+  background: #f3efde;
+  border-radius: 7px;
+}
 .input-with-icon {
   display: flex;
   align-items: center;
@@ -869,10 +885,15 @@ button:active {
   color: #8a987e;
   font-size: 8px;
 }
-.info-footer > span {
+.info-footer > span,
+.info-footer > a {
   display: flex;
   align-items: center;
   gap: 4px;
+}
+.info-footer > a:hover {
+  color: var(--green);
+  text-decoration: underline;
 }
 .info-footer i {
   width: 6px;

@@ -16,7 +16,7 @@ test('renders WebGL, picks a real building, explores modules and regenerates det
     String(snapshot.modules.length),
   )
   await expect(page.locator('#module-select option')).toHaveCount(snapshot.modules.length + 1)
-  await expect(page.locator('#repository')).toHaveAttribute('readonly', '')
+  await expect(page.locator('#repository')).toBeEditable()
   await expect(page.getByLabel('Stadtgröße')).toHaveCount(0)
   await page.screenshot({ animations: 'disabled', path: 'test-results/repocity-desktop.png' })
   // Probe actual screen coordinates through the WebGL raycaster, not a mocked event.

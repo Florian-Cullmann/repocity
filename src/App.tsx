@@ -2,7 +2,9 @@ import {
   lazy,
   Suspense,
   useCallback,
+  useEffect,
   useMemo,
+  useRef,
   useState,
   useTransition,
   type FormEvent,
@@ -31,7 +33,9 @@ import {
   X,
 } from 'lucide-react'
 import { createMockRepository } from './data/mockRepository'
+import { fetchGitHubRepository, parseGitHubRepository } from './data/githubRepository'
 import localRepository from 'virtual:repository-snapshot'
+import type { RepositorySnapshot } from './domain/repository'
 import { generateCity } from './city/generateCity'
 import type { CameraAction } from './scene/CityScene'
 import { BuildingInfo } from './ui/BuildingInfo'
@@ -40,18 +44,16 @@ import './styles.css'
 
 const CityScene = lazy(() => import('./scene/CityScene'))
 const format = new Intl.NumberFormat('de-DE', { notation: 'compact', maximumFractionDigits: 1 })
-type Source = 'local' | 'mock'
+type Source = RepositorySnapshot['source']
 
 function App() {
-  const [sourceInput, setSourceInput] = useState<Source>('local')
-  const [repositoryInput, setRepositoryInput] = useState('acme/atlas')
+  const [sourceInput, setSourceInput] = useState<Source>('github')
+  const [repositoryInput, setRepositoryInput] = useState('Florian-Cullmann/repocity')
   const [seedInput, setSeedInput] = useState('hello-world')
   const [countInput, setCountInput] = useState(96)
   const [config, setConfig] = useState({
-    source: 'local' as Source,
-    name: 'acme/atlas',
+    repository: localRepository,
     seed: 'hello-world',
-    count: 96,
   })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusDistrict, setFocusDistrict] = useState<string | null>(null)
@@ -59,13 +61,13 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [ready, setReady] = useState(false)
   const [error, setError] = useState('')
-  const [pending, startTransition] = useTransition()
+  const [generating, startTransition] = useTransition()
+  const [importProgress, setImportProgress] = useState<string | null>(null)
+  const activeImport = useRef<AbortController | null>(null)
+  const pending = generating || importProgress !== null
+  useEffect(() => () => activeImport.current?.abort(), [])
   const [cameraAction, setCameraAction] = useState<CameraAction>({ type: 'reset', sequence: 0 })
-  const repository = useMemo(
-    () =>
-      config.source === 'local' ? localRepository : createMockRepository(config.name, config.count),
-    [config.source, config.name, config.count],
-  )
+  const repository = config.repository
   const city = useMemo(
     () => generateCity(repository, { seed: config.seed }),
     [repository, config.seed],
@@ -87,23 +89,15 @@ function App() {
     if (id) setSidebarOpen(false)
   }
 
-  function generate(event: FormEvent) {
-    event.preventDefault()
-    const name = repositoryInput
-      .trim()
-      .replace(/^https?:\/\/github\.com\//i, '')
-      .replace(/\/$/, '')
-    if (sourceInput === 'mock' && !/^[\w.-]+\/[\w.-]+$/.test(name)) {
-      setError('Bitte owner/repository eingeben, z. B. acme/atlas.')
-      return
-    }
-    if (!seedInput.trim()) {
-      setError('Bitte einen Seed eingeben.')
-      return
-    }
-    setError('')
+  function cancelImport() {
+    activeImport.current?.abort()
+    activeImport.current = null
+    setImportProgress(null)
+  }
+
+  function showRepository(snapshot: RepositorySnapshot, seed: string) {
     startTransition(() => {
-      setConfig({ source: sourceInput, name, seed: seedInput.trim(), count: countInput })
+      setConfig({ repository: snapshot, seed })
       setSelectedId(null)
       setFocusDistrict(null)
       camera('reset')
@@ -111,10 +105,58 @@ function App() {
     setSidebarOpen(false)
   }
 
+  async function generate(event: FormEvent) {
+    event.preventDefault()
+    if (!seedInput.trim()) {
+      setError('Bitte einen Seed eingeben.')
+      return
+    }
+    setError('')
+    cancelImport()
+    const seed = seedInput.trim()
+    if (sourceInput === 'local') {
+      showRepository(localRepository, seed)
+      return
+    }
+    let name: string
+    try {
+      name = parseGitHubRepository(repositoryInput)
+    } catch (error) {
+      setError((error as Error).message)
+      return
+    }
+    if (sourceInput === 'mock') {
+      showRepository(createMockRepository(name, countInput), seed)
+      return
+    }
+    const controller = new AbortController()
+    activeImport.current = controller
+    setImportProgress('Repository wird geladen …')
+    try {
+      const snapshot = await fetchGitHubRepository(name, {
+        signal: controller.signal,
+        onProgress: (loaded, total) => {
+          if (activeImport.current === controller && !controller.signal.aborted)
+            setImportProgress(`${loaded} von ${total} Quelldateien gelesen …`)
+        },
+      })
+      if (activeImport.current === controller && !controller.signal.aborted)
+        showRepository(snapshot, seed)
+    } catch (error) {
+      if (activeImport.current === controller && !controller.signal.aborted)
+        setError(error instanceof Error ? error.message : 'Der Import ist fehlgeschlagen.')
+    } finally {
+      if (activeImport.current === controller) {
+        activeImport.current = null
+        setImportProgress(null)
+      }
+    }
+  }
+
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a href="/" className="brand" aria-label="RepoCity Startseite">
+        <a href="./" className="brand" aria-label="RepoCity Startseite">
           <span className="brand-icon">
             <span />
             <span />
@@ -177,16 +219,24 @@ function App() {
               className="source-select"
               value={sourceInput}
               onChange={(event) => {
+                cancelImport()
                 setSourceInput(event.target.value as Source)
                 setError('')
               }}
             >
-              <option value="local">Lokales Repository · echte Daten</option>
+              <option value="github">GitHub · öffentliches Repository</option>
+              <option value="local">RepoCity · Startbeispiel</option>
               <option value="mock">Demo · fiktive Mockdaten</option>
             </select>
             <label htmlFor="repository">
               Repository{' '}
-              <span className="tiny-badge">{sourceInput === 'local' ? 'LOKAL' : 'DEMO'}</span>
+              <span className="tiny-badge">
+                {sourceInput === 'github'
+                  ? 'GITHUB'
+                  : sourceInput === 'local'
+                    ? 'BEISPIEL'
+                    : 'DEMO'}
+              </span>
             </label>
             <div className="input-with-icon">
               {sourceInput === 'local' ? <FolderCode size={16} /> : <Github size={16} />}
@@ -194,9 +244,13 @@ function App() {
                 id="repository"
                 value={sourceInput === 'local' ? localRepository.name : repositoryInput}
                 readOnly={sourceInput === 'local'}
-                onChange={(event) => setRepositoryInput(event.target.value)}
-                placeholder="owner/repository"
-                maxLength={120}
+                onChange={(event) => {
+                  cancelImport()
+                  setRepositoryInput(event.target.value)
+                  setError('')
+                }}
+                placeholder="https://github.com/owner/repository"
+                maxLength={250}
                 spellCheck={false}
                 autoComplete="off"
               />
@@ -210,7 +264,10 @@ function App() {
               <input
                 id="seed"
                 value={seedInput}
-                onChange={(event) => setSeedInput(event.target.value)}
+                onChange={(event) => {
+                  cancelImport()
+                  setSeedInput(event.target.value)
+                }}
                 maxLength={80}
                 spellCheck={false}
               />
@@ -218,9 +275,10 @@ function App() {
                 type="button"
                 className="icon-button"
                 aria-label="Zufälligen Seed wählen"
-                onClick={() =>
+                onClick={() => {
+                  cancelImport()
                   setSeedInput(`city-${crypto.getRandomValues(new Uint32Array(1))[0].toString(36)}`)
-                }
+                }}
               >
                 <Dice5 size={17} />
               </button>
@@ -238,10 +296,14 @@ function App() {
                   <option value={768}>Metropole · 768</option>
                 </select>
               </div>
-            ) : (
+            ) : sourceInput === 'local' ? (
               <p className="source-details">
                 {localRepository.modules.length} Quelldateien · {localRepository.districts.length}{' '}
                 Ordner. Jede Datei ein Gebäude, jeder Ordner ein Viertel.
+              </p>
+            ) : (
+              <p className="source-details">
+                GitHub-URL oder owner/repository eingeben. Jede Quelldatei wird ein Gebäude.
               </p>
             )}
             {error && (
@@ -251,15 +313,32 @@ function App() {
             )}
             <button className="primary-button" disabled={pending} type="submit">
               <Sparkles size={16} />
-              {pending ? 'Stadt entsteht …' : 'Stadt generieren'}
+              {pending
+                ? 'Stadt entsteht …'
+                : sourceInput === 'github'
+                  ? 'Repository laden'
+                  : 'Stadt generieren'}
               <ArrowRight size={16} />
             </button>
+            {importProgress !== null && (
+              <div className="import-progress">
+                <p role="status" aria-live="polite">
+                  {importProgress}
+                </p>
+                <button type="button" onClick={cancelImport}>
+                  Import abbrechen
+                </button>
+              </div>
+            )}
             <p className="source-note">
               <span className="status-dot" />
-              {sourceInput === 'local'
-                ? 'Lokal gemessen. Keine GitHub-Verbindung.'
-                : 'Lokale Mockdaten. Keine GitHub-Verbindung.'}
+              {sourceInput === 'github'
+                ? 'Direkt von GitHub. Ohne Anmeldung.'
+                : sourceInput === 'local'
+                  ? 'Lokal gemessen. Keine GitHub-Verbindung.'
+                  : 'Lokale Mockdaten. Keine GitHub-Verbindung.'}
             </p>
+            {repository.notice && <p className="import-notice">{repository.notice}</p>}
           </form>
           <section className="district-section" aria-label="Stadtviertel">
             <div className="section-heading">
@@ -323,12 +402,26 @@ function App() {
             </div>
             <div className="repo-title">
               <h2>{repository.name.split('/').at(-1)}</h2>
-              <span>{repository.source === 'local' ? 'Echte Daten' : 'Mock City'}</span>
+              <span>
+                {repository.source === 'github'
+                  ? repository.notice
+                    ? 'GitHub · Auswahl'
+                    : 'GitHub'
+                  : repository.source === 'local'
+                    ? 'Echte Daten'
+                    : 'Mock City'}
+              </span>
             </div>
             <p>
               {repository.source === 'local' ? <FolderCode size={13} /> : <Github size={13} />}
               {repository.name} <span>/</span>
-              <span>{repository.source === 'local' ? 'Lokaler Snapshot' : 'Demo'}</span>
+              <span>
+                {repository.revision
+                  ? `${repository.revision.branch} · ${repository.revision.commit.slice(0, 7)}`
+                  : repository.source === 'local'
+                    ? 'Startbeispiel'
+                    : 'Demo'}
+              </span>
             </p>
           </div>
           <div className="city-stats panel">
@@ -380,7 +473,7 @@ function App() {
             <BuildingInfo
               module={selectedModule}
               district={selectedDistrict}
-              source={repository.source}
+              repository={repository}
               onClose={() => setSelectedId(null)}
             />
           ) : (
@@ -421,7 +514,11 @@ function App() {
           <div className="scene-bottom">
             <div>
               <span className="status-dot" />
-              {pending ? 'Wird generiert …' : 'Alles bereit zum Erkunden'}
+              {importProgress !== null
+                ? 'Repository wird geladen …'
+                : pending
+                  ? 'Wird generiert …'
+                  : 'Alles bereit zum Erkunden'}
               <span className="bottom-divider" />
               <code>seed: {config.seed}</code>
             </div>
@@ -480,7 +577,13 @@ function App() {
         </span>
         <span>
           Gebäudehöhe = Codeumfang <span>·</span> Farbe = Stadtviertel <span>·</span>
-          {repository.source === 'local' ? 'Lokale Quelldaten' : '100 % Mockdaten'}
+          {repository.source === 'github'
+            ? repository.notice
+              ? 'GitHub · Auswahl'
+              : 'GitHub-Quelldaten'
+            : repository.source === 'local'
+              ? 'Lokale Quelldaten'
+              : '100 % Mockdaten'}
         </span>
         <span>
           MADE FOR EXPLORING <span>↗</span>

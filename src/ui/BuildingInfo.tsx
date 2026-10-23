@@ -1,15 +1,15 @@
-import { Box, FileCode2, Layers3, Network, X } from 'lucide-react'
+import { ArrowUpRight, Box, FileCode2, Layers3, Network, X } from 'lucide-react'
 import type { District, RepositorySnapshot, SoftwareModule } from '../domain/repository'
 
 export function BuildingInfo({
   module,
   district,
-  source,
+  repository,
   onClose,
 }: {
   module: SoftwareModule
   district: District
-  source: RepositorySnapshot['source']
+  repository: RepositorySnapshot
   onClose: () => void
 }) {
   return (
@@ -74,9 +74,17 @@ export function BuildingInfo({
         <span>
           <i /> {module.language}
         </span>
-        <span>
-          {source === 'local' ? 'Lokale Quelldaten' : source === 'mock' ? 'Mockdaten' : 'GitHub'}
-        </span>
+        {repository.source === 'github' && repository.url && repository.revision ? (
+          <a
+            href={`${repository.url}/blob/${repository.revision.commit}/${module.path.split('/').map(encodeURIComponent).join('/')}`}
+            target="_blank"
+            rel="noreferrer"
+          >
+            Auf GitHub ansehen <ArrowUpRight size={12} />
+          </a>
+        ) : (
+          <span>{repository.source === 'mock' ? 'Mockdaten' : 'Lokale Quelldaten'}</span>
+        )}
       </div>
     </aside>
   )

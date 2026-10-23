@@ -1,4 +1,4 @@
-/** Provider-neutral input shared by local analysis, demos and future GitHub adapters. */
+/** Provider-neutral input shared by local analysis, demos and GitHub imports. */
 export interface SoftwareModule {
   id: string
   name: string
@@ -24,6 +24,9 @@ export interface District {
 export interface RepositorySnapshot {
   name: string
   source: 'mock' | 'local' | 'github'
+  url?: string
+  revision?: { branch: string; commit: string }
+  notice?: string
   districts: District[]
   modules: SoftwareModule[]
 }

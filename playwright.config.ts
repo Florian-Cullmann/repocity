@@ -14,8 +14,10 @@ export default defineConfig({
     },
   },
   webServer: {
-    command: 'npm run dev',
+    command: process.env.REPOCITY_E2E_PREVIEW
+      ? 'npm run preview -- --port 5174 --strictPort'
+      : 'npm run dev',
     url: 'http://127.0.0.1:5174',
-    reuseExistingServer: !process.env.CI,
+    reuseExistingServer: !process.env.CI && !process.env.REPOCITY_E2E_PREVIEW,
   },
 })
