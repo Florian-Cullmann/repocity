@@ -1,13 +1,23 @@
 import { test, expect } from '@playwright/test'
+import { analyzeRepository } from '../tooling/analyzeRepository.mjs'
 
 test('renders WebGL, picks a real building, explores modules and regenerates deterministically', async ({
   page,
 }) => {
   const errors: string[] = []
   page.on('pageerror', (error) => errors.push(error.message))
+  const snapshot = await analyzeRepository(process.cwd())
   await page.goto('/')
   await expect(page.getByTestId('city-canvas')).toHaveAttribute('data-ready', 'true')
   await expect(page.locator('canvas')).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'repocity', exact: true })).toBeVisible()
+  await expect(page.locator('.repo-title')).toContainText('Echte Daten')
+  await expect(page.locator('.city-stats strong').first()).toHaveText(
+    String(snapshot.modules.length),
+  )
+  await expect(page.locator('#module-select option')).toHaveCount(snapshot.modules.length + 1)
+  await expect(page.locator('#repository')).toHaveAttribute('readonly', '')
+  await expect(page.getByLabel('Stadtgröße')).toHaveCount(0)
   await page.screenshot({ animations: 'disabled', path: 'test-results/repocity-desktop.png' })
   // Probe actual screen coordinates through the WebGL raycaster, not a mocked event.
   const bounds = (await page.locator('canvas').boundingBox())!
@@ -24,6 +34,24 @@ test('renders WebGL, picks a real building, explores modules and regenerates det
   }
   expect(picked).toBe(true)
   await page.getByLabel('Gebäudeinformationen schließen').click()
+  await page.getByLabel('Oder ein Modul direkt erkunden').selectOption('src/city/generateCity.ts')
+  const details = page.getByLabel('Gebäudeinformationen', { exact: true })
+  await expect(details.getByRole('heading', { name: 'generateCity.ts', exact: true })).toBeVisible()
+  await expect(details.getByText('Nicht verfügbar', { exact: true })).toHaveCount(2)
+  await expect(details.locator('.coverage-track')).toHaveCount(0)
+  await expect(details.locator('.module-metrics strong').first()).toHaveText(
+    snapshot.modules
+      .find((module) => module.id === 'src/city/generateCity.ts')!
+      .metrics.lines.toLocaleString('de-DE'),
+  )
+  await page.screenshot({
+    animations: 'disabled',
+    path: 'test-results/repocity-local-selected.png',
+  })
+  await page.getByLabel('Datenquelle').selectOption('mock')
+  await page.getByRole('button', { name: 'Stadt generieren' }).click()
+  await expect(details).not.toBeVisible()
+  await expect(page.locator('.repo-title')).toContainText('Mock City')
   await page.getByLabel('Oder ein Modul direkt erkunden').selectOption('core/auth')
   await expect(page.getByRole('heading', { name: 'auth', exact: true })).toBeVisible()
   await page.screenshot({ animations: 'disabled', path: 'test-results/repocity-selected.png' })
@@ -51,6 +79,14 @@ test('renders WebGL, picks a real building, explores modules and regenerates det
     await page.getByRole('button', { name: label, exact: true }).click()
   await page.getByRole('button', { name: 'Steuerung', exact: true }).click()
   await expect(page.getByText('Linke Maustaste ziehen · ein Finger')).toBeVisible()
+  await page.getByLabel('Datenquelle').selectOption('local')
+  await page.getByRole('button', { name: 'Stadt generieren' }).click()
+  await expect(page.getByRole('heading', { name: 'repocity', exact: true })).toBeVisible()
+  await expect(page.locator('.city-stats strong').first()).toHaveText(
+    String(snapshot.modules.length),
+  )
+  await expect(details).not.toBeVisible()
+  await expect(page.getByRole('button', { name: /hervorgehoben/ })).toHaveCount(0)
   expect(errors).toEqual([])
 })
 
@@ -62,8 +98,9 @@ test('mobile layout exposes the form and module details without horizontal overf
   await expect(page.getByTestId('city-canvas')).toHaveAttribute('data-ready', 'true')
   await page.screenshot({ animations: 'disabled', path: 'test-results/repocity-mobile.png' })
   await page.getByRole('button', { name: 'Stadt erkunden' }).click()
-  await page.getByLabel('Oder ein Modul direkt erkunden').selectOption('interface/design-system')
-  await expect(page.getByRole('heading', { name: 'design-system' })).toBeVisible()
+  await page.getByLabel('Oder ein Modul direkt erkunden').selectOption('src/App.tsx')
+  await expect(page.getByRole('heading', { name: 'App.tsx' })).toBeVisible()
+  await expect(page.getByText('Nicht verfügbar', { exact: true })).toHaveCount(2)
   await expect(page.locator('#explorer-sidebar')).not.toBeVisible()
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(
     true,
@@ -79,6 +116,7 @@ test('renders the 768-module metropolis and keeps selection usable', async ({ pa
   page.on('pageerror', (error) => errors.push(error.message))
   await page.goto('/')
   await expect(page.getByTestId('city-canvas')).toHaveAttribute('data-ready', 'true')
+  await page.getByLabel('Datenquelle').selectOption('mock')
   await page.getByLabel('Stadtgröße').selectOption('768')
   await page.getByRole('button', { name: 'Stadt generieren' }).click()
   await expect(page.locator('.city-stats')).toContainText('768')

@@ -15,6 +15,7 @@ import {
   ChevronDown,
   Compass,
   Dice5,
+  FolderCode,
   GitFork as Github,
   HelpCircle,
   Layers3,
@@ -30,6 +31,7 @@ import {
   X,
 } from 'lucide-react'
 import { createMockRepository } from './data/mockRepository'
+import localRepository from 'virtual:repository-snapshot'
 import { generateCity } from './city/generateCity'
 import type { CameraAction } from './scene/CityScene'
 import { BuildingInfo } from './ui/BuildingInfo'
@@ -38,12 +40,19 @@ import './styles.css'
 
 const CityScene = lazy(() => import('./scene/CityScene'))
 const format = new Intl.NumberFormat('de-DE', { notation: 'compact', maximumFractionDigits: 1 })
+type Source = 'local' | 'mock'
 
 function App() {
+  const [sourceInput, setSourceInput] = useState<Source>('local')
   const [repositoryInput, setRepositoryInput] = useState('acme/atlas')
   const [seedInput, setSeedInput] = useState('hello-world')
   const [countInput, setCountInput] = useState(96)
-  const [config, setConfig] = useState({ name: 'acme/atlas', seed: 'hello-world', count: 96 })
+  const [config, setConfig] = useState({
+    source: 'local' as Source,
+    name: 'acme/atlas',
+    seed: 'hello-world',
+    count: 96,
+  })
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [focusDistrict, setFocusDistrict] = useState<string | null>(null)
   const [helpOpen, setHelpOpen] = useState(false)
@@ -53,8 +62,9 @@ function App() {
   const [pending, startTransition] = useTransition()
   const [cameraAction, setCameraAction] = useState<CameraAction>({ type: 'reset', sequence: 0 })
   const repository = useMemo(
-    () => createMockRepository(config.name, config.count),
-    [config.name, config.count],
+    () =>
+      config.source === 'local' ? localRepository : createMockRepository(config.name, config.count),
+    [config.source, config.name, config.count],
   )
   const city = useMemo(
     () => generateCity(repository, { seed: config.seed }),
@@ -83,7 +93,7 @@ function App() {
       .trim()
       .replace(/^https?:\/\/github\.com\//i, '')
       .replace(/\/$/, '')
-    if (!/^[\w.-]+\/[\w.-]+$/.test(name)) {
+    if (sourceInput === 'mock' && !/^[\w.-]+\/[\w.-]+$/.test(name)) {
       setError('Bitte owner/repository eingeben, z. B. acme/atlas.')
       return
     }
@@ -93,7 +103,7 @@ function App() {
     }
     setError('')
     startTransition(() => {
-      setConfig({ name, seed: seedInput.trim(), count: countInput })
+      setConfig({ source: sourceInput, name, seed: seedInput.trim(), count: countInput })
       setSelectedId(null)
       setFocusDistrict(null)
       camera('reset')
@@ -161,14 +171,29 @@ function App() {
             </p>
           </div>
           <form className="generator" onSubmit={generate}>
+            <label htmlFor="repository-source">Datenquelle</label>
+            <select
+              id="repository-source"
+              className="source-select"
+              value={sourceInput}
+              onChange={(event) => {
+                setSourceInput(event.target.value as Source)
+                setError('')
+              }}
+            >
+              <option value="local">Lokales Repository · echte Daten</option>
+              <option value="mock">Demo · fiktive Mockdaten</option>
+            </select>
             <label htmlFor="repository">
-              Repository <span className="tiny-badge">DEMO</span>
+              Repository{' '}
+              <span className="tiny-badge">{sourceInput === 'local' ? 'LOKAL' : 'DEMO'}</span>
             </label>
             <div className="input-with-icon">
-              <Github size={16} />
+              {sourceInput === 'local' ? <FolderCode size={16} /> : <Github size={16} />}
               <input
                 id="repository"
-                value={repositoryInput}
+                value={sourceInput === 'local' ? localRepository.name : repositoryInput}
+                readOnly={sourceInput === 'local'}
                 onChange={(event) => setRepositoryInput(event.target.value)}
                 placeholder="owner/repository"
                 maxLength={120}
@@ -200,18 +225,25 @@ function App() {
                 <Dice5 size={17} />
               </button>
             </div>
-            <div className="size-row">
-              <label htmlFor="city-size">Stadtgröße</label>
-              <select
-                id="city-size"
-                value={countInput}
-                onChange={(event) => setCountInput(Number(event.target.value))}
-              >
-                <option value={96}>Kleinstadt · 96</option>
-                <option value={256}>Großstadt · 256</option>
-                <option value={768}>Metropole · 768</option>
-              </select>
-            </div>
+            {sourceInput === 'mock' ? (
+              <div className="size-row">
+                <label htmlFor="city-size">Stadtgröße</label>
+                <select
+                  id="city-size"
+                  value={countInput}
+                  onChange={(event) => setCountInput(Number(event.target.value))}
+                >
+                  <option value={96}>Kleinstadt · 96</option>
+                  <option value={256}>Großstadt · 256</option>
+                  <option value={768}>Metropole · 768</option>
+                </select>
+              </div>
+            ) : (
+              <p className="source-details">
+                {localRepository.modules.length} Quelldateien · {localRepository.districts.length}{' '}
+                Ordner. Jede Datei ein Gebäude, jeder Ordner ein Viertel.
+              </p>
+            )}
             {error && (
               <p className="form-error" role="alert">
                 {error}
@@ -222,14 +254,17 @@ function App() {
               {pending ? 'Stadt entsteht …' : 'Stadt generieren'}
               <ArrowRight size={16} />
             </button>
-            <p className="mock-note">
-              <span className="status-dot" /> Lokale Mockdaten. Keine GitHub-Verbindung.
+            <p className="source-note">
+              <span className="status-dot" />
+              {sourceInput === 'local'
+                ? 'Lokal gemessen. Keine GitHub-Verbindung.'
+                : 'Lokale Mockdaten. Keine GitHub-Verbindung.'}
             </p>
           </form>
           <section className="district-section" aria-label="Stadtviertel">
             <div className="section-heading">
               <h2>Stadtviertel</h2>
-              <span>06</span>
+              <span>{String(repository.districts.length).padStart(2, '0')}</span>
             </div>
             <div className="district-list">
               {repository.districts.map((district) => (
@@ -287,11 +322,13 @@ function App() {
               <span className="status-dot" /> DEINE REPOSITORY-STADT
             </div>
             <div className="repo-title">
-              <h2>{config.name.split('/')[1]}</h2>
-              <span>Mock City</span>
+              <h2>{repository.name.split('/').at(-1)}</h2>
+              <span>{repository.source === 'local' ? 'Echte Daten' : 'Mock City'}</span>
             </div>
             <p>
-              <Github size={13} /> {config.name} <span>/</span> <span>main</span>
+              {repository.source === 'local' ? <FolderCode size={13} /> : <Github size={13} />}
+              {repository.name} <span>/</span>
+              <span>{repository.source === 'local' ? 'Lokaler Snapshot' : 'Demo'}</span>
             </p>
           </div>
           <div className="city-stats panel">
@@ -343,6 +380,7 @@ function App() {
             <BuildingInfo
               module={selectedModule}
               district={selectedDistrict}
+              source={repository.source}
               onClose={() => setSelectedId(null)}
             />
           ) : (
@@ -441,8 +479,8 @@ function App() {
           <span className="status-dot" /> Eine Stadt voller Möglichkeiten.
         </span>
         <span>
-          Gebäudehöhe = Codeumfang <span>·</span> Farbe = Stadtviertel <span>·</span> 100 %
-          Mockdaten
+          Gebäudehöhe = Codeumfang <span>·</span> Farbe = Stadtviertel <span>·</span>
+          {repository.source === 'local' ? 'Lokale Quelldaten' : '100 % Mockdaten'}
         </span>
         <span>
           MADE FOR EXPLORING <span>↗</span>

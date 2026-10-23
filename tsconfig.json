@@ -4,16 +4,19 @@
     "lib": ["ES2022", "DOM", "DOM.Iterable"],
     "module": "ESNext",
     "moduleResolution": "Bundler",
+    "allowImportingTsExtensions": true,
     "jsx": "react-jsx",
     "strict": true,
     "skipLibCheck": true,
     "esModuleInterop": true,
     "resolveJsonModule": true,
     "isolatedModules": true,
+    "allowJs": true,
+    "checkJs": true,
     "noEmit": true,
     "noUnusedLocals": true,
     "noUnusedParameters": true,
     "types": ["vite/client", "node"]
   },
-  "include": ["src", "vite.config.ts", "tests", "playwright.config.ts"]
+  "include": ["src", "tooling", "scripts", "vite.config.ts", "tests", "playwright.config.ts"]
 }

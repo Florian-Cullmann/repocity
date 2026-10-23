@@ -81,4 +81,24 @@ describe('deterministic city generation', () => {
     snapshot.modules[1].metrics.lines = NaN
     expect(() => generateCity(snapshot, { seed: 'x' })).toThrow('Ungültige Metriken')
   })
+  it('accepts unavailable optional metrics and preserves measured zero values', () => {
+    const snapshot = createMockRepository('test/repo', 2)
+    snapshot.modules[0].metrics.dependencies = null
+    snapshot.modules[0].metrics.coverage = null
+    snapshot.modules[1].metrics.dependencies = 0
+    snapshot.modules[1].metrics.coverage = 0
+    expect(generateCity(snapshot, { seed: 'measured' }).buildings).toHaveLength(2)
+  })
+  it.each([
+    { lines: -1 },
+    { files: Infinity },
+    { dependencies: NaN },
+    { dependencies: -1 },
+    { coverage: 101 },
+    { coverage: -1 },
+  ])('rejects invalid metrics %j', (metrics) => {
+    const snapshot = createMockRepository('test/repo', 1)
+    Object.assign(snapshot.modules[0].metrics, metrics)
+    expect(() => generateCity(snapshot, { seed: 'invalid' })).toThrow('Ungültige Metriken')
+  })
 })

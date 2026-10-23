@@ -1,4 +1,4 @@
-/** Provider-neutral input. A future GitHub adapter only has to produce this model. */
+/** Provider-neutral input shared by local analysis, demos and future GitHub adapters. */
 export interface SoftwareModule {
   id: string
   name: string
@@ -6,7 +6,12 @@ export interface SoftwareModule {
   districtId: string
   language: string
   description: string
-  metrics: { lines: number; files: number; dependencies: number; coverage: number }
+  metrics: {
+    lines: number
+    files: number
+    dependencies: number | null
+    coverage: number | null
+  }
 }
 
 export interface District {
@@ -18,7 +23,7 @@ export interface District {
 
 export interface RepositorySnapshot {
   name: string
-  source: 'mock' | 'github'
+  source: 'mock' | 'local' | 'github'
   districts: District[]
   modules: SoftwareModule[]
 }

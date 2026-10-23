@@ -3,6 +3,7 @@
   "version": "0.1.0",
   "description": "Explore software as a colorful, interactive 3D miniature city.",
   "scripts": {
+    "analyze": "node scripts/analyze.mjs",
     "dev": "vite --host 127.0.0.1",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview --host 127.0.0.1",

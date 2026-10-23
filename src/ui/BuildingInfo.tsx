@@ -1,13 +1,15 @@
-import { ArrowUpRight, Box, FileCode2, Layers3, Network, X } from 'lucide-react'
-import type { District, SoftwareModule } from '../domain/repository'
+import { Box, FileCode2, Layers3, Network, X } from 'lucide-react'
+import type { District, RepositorySnapshot, SoftwareModule } from '../domain/repository'
 
 export function BuildingInfo({
   module,
   district,
+  source,
   onClose,
 }: {
   module: SoftwareModule
   district: District
+  source: RepositorySnapshot['source']
   onClose: () => void
 }) {
   return (
@@ -51,23 +53,29 @@ export function BuildingInfo({
         </div>
         <div>
           <Network size={15} />
-          <strong>{module.metrics.dependencies}</strong>
+          <strong className={module.metrics.dependencies === null ? 'unavailable-metric' : ''}>
+            {module.metrics.dependencies ?? 'Nicht verfügbar'}
+          </strong>
           <span>Abhängigkeiten</span>
         </div>
       </div>
       <div className="coverage-label">
         <span>Testabdeckung</span>
-        <strong>{module.metrics.coverage} %</strong>
+        <strong>
+          {module.metrics.coverage === null ? 'Nicht verfügbar' : `${module.metrics.coverage} %`}
+        </strong>
       </div>
-      <div className="coverage-track">
-        <span style={{ width: `${module.metrics.coverage}%` }} />
-      </div>
+      {module.metrics.coverage !== null && (
+        <div className="coverage-track">
+          <span style={{ width: `${module.metrics.coverage}%` }} />
+        </div>
+      )}
       <div className="info-footer">
         <span>
           <i /> {module.language}
         </span>
         <span>
-          Mockdaten <ArrowUpRight size={12} />
+          {source === 'local' ? 'Lokale Quelldaten' : source === 'mock' ? 'Mockdaten' : 'GitHub'}
         </span>
       </div>
     </aside>

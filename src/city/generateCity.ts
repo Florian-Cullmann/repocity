@@ -13,7 +13,13 @@ export function generateCity(repository: RepositorySnapshot, config: CityConfig)
   for (const module of repository.modules) {
     if (!districtIds.has(module.districtId))
       throw new Error(`Unbekanntes Viertel: ${module.districtId}`)
-    if (Object.values(module.metrics).some((value) => !Number.isFinite(value) || value < 0)) {
+    const { lines, files, dependencies, coverage } = module.metrics
+    const invalid = (value: number) => !Number.isFinite(value) || value < 0
+    if (
+      [lines, files].some(invalid) ||
+      [dependencies, coverage].some((value) => value !== null && invalid(value)) ||
+      (coverage !== null && coverage > 100)
+    ) {
       throw new Error(`Ungültige Metriken: ${module.id}`)
     }
   }
@@ -55,7 +61,11 @@ export function generateCity(repository: RepositorySnapshot, config: CityConfig)
       for (let slot = 0; slot < 4 && i + slot < modules.length; slot++) {
         const module = modules[i + slot]
         const rng = randomFromSeed(`${config.seed}:${module.id}`)
-        const floors = Math.max(2, Math.min(13, Math.round(2 + module.metrics.lines / 1000)))
+        // A fixed logarithmic scale also makes small, real source files distinguishable.
+        const floors = Math.max(
+          2,
+          Math.min(13, Math.round(2 + 1.5 * Math.log2(1 + module.metrics.lines / 40))),
+        )
         buildings.push({
           id: module.id,
           moduleId: module.id,

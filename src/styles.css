@@ -251,6 +251,22 @@ button:active {
   border-radius: 3px;
   color: #7c8c6a;
 }
+.source-select {
+  width: 100%;
+  padding: 10px 8px;
+  margin-bottom: 15px;
+  border: 1px solid #dfe4d8;
+  border-radius: 7px;
+  background: #fff;
+  color: #50614e;
+  font-size: 10px;
+}
+.source-details {
+  margin: 13px 0 15px;
+  font-size: 9px;
+  line-height: 1.7;
+  color: #718267;
+}
 .input-with-icon {
   display: flex;
   align-items: center;
@@ -337,7 +353,7 @@ button:active {
   background: #347351;
   box-shadow: 0 3px 9px #285f4525;
 }
-.mock-note {
+.source-note {
   font-size: 8px;
   color: #95a08c;
   display: flex;
@@ -346,7 +362,7 @@ button:active {
   margin: 11px 0 0;
   white-space: nowrap;
 }
-.mock-note .status-dot {
+.source-note .status-dot {
   width: 4px;
   height: 4px;
   background: #a5b592;
@@ -814,6 +830,14 @@ button:active {
 .module-metrics span {
   font-size: 8px;
   color: #909d85;
+}
+.module-metrics .unavailable-metric {
+  font: inherit;
+  font-size: 10px;
+  min-height: 21px;
+  display: flex;
+  align-items: center;
+  color: #839276;
 }
 .coverage-label {
   display: flex;
