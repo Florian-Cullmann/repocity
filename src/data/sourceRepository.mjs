@@ -94,7 +94,7 @@ export function describeSourceFile(path, bytes) {
     path,
     districtId: district,
     language,
-    description: `Quelldatei aus ${district === '.' ? 'Projektwurzel' : district}.`,
+    description: `Source file from ${district === '.' ? 'Project root' : district}.`,
     metrics: { lines: null, bytes, files: 1, dependencies: null, coverage: null },
   }
 }
@@ -115,7 +115,7 @@ export function measureSourceFile(path, content) {
     path,
     districtId: district,
     language,
-    description: `Quelldatei aus ${district === '.' ? 'Projektwurzel' : district}. ${lines.toLocaleString('de-DE')} nichtleere Zeilen, einschließlich Kommentaren.`,
+    description: `Source file from ${district === '.' ? 'Project root' : district}. ${lines.toLocaleString('en-US')} non-empty lines, including comments.`,
     metrics: { lines, files: 1, dependencies: null, coverage: null },
   }
 }
@@ -127,7 +127,7 @@ export function measureSourceFile(path, content) {
  * @returns {import('../domain/repository').RepositorySnapshot}
  */
 export function createSourceRepository(name, source, modules) {
-  if (modules.length === 0) throw new Error('Keine unterstützten Quelldateien gefunden.')
+  if (modules.length === 0) throw new Error('No supported source files found.')
   const districts = [...new Set(modules.map((module) => module.districtId))].sort((a, b) =>
     a.localeCompare(b, 'en'),
   )
@@ -139,8 +139,8 @@ export function createSourceRepository(name, source, modules) {
       for (const character of id) hash = (Math.imul(hash, 31) + character.charCodeAt(0)) >>> 0
       return {
         id,
-        name: id === '.' ? 'Projektwurzel' : id,
-        subtitle: id === '.' ? 'Dateien im Projektverzeichnis' : `Quellcode in ${id}`,
+        name: id === '.' ? 'Project root' : id,
+        subtitle: id === '.' ? 'Files in the project root' : `Source code in ${id}`,
         color: colors[hash % colors.length],
       }
     }),

@@ -69,7 +69,7 @@ describe('GitHub repository input', () => {
     'example/garden?x=1',
   ])('rejects %s before making requests', async (input) => {
     const fetcher = github([])
-    await expect(fetchGitHubRepository(input)).rejects.toThrow('GitHub-Repository-URL')
+    await expect(fetchGitHubRepository(input)).rejects.toThrow('GitHub repository URL')
     expect(fetcher).not.toHaveBeenCalled()
   })
 })
@@ -116,7 +116,7 @@ describe('GitHub repository import', () => {
     ).toBe(true)
     expect(snapshot.modules[0].metrics.bytes).toBe(13)
     expect(snapshot.districts.map((district) => district.id)).toEqual(['src', 'src/city', 'src/ui'])
-    expect(snapshot.notice).toContain('Alle 4 Quelldateien')
+    expect(snapshot.notice).toBeUndefined()
     expect(JSON.stringify(snapshot)).not.toContain('export const')
     expect(progress).toHaveBeenLastCalledWith(4, 4)
     expect(fetcher).toHaveBeenCalledTimes(3)
@@ -135,7 +135,7 @@ describe('GitHub repository import', () => {
     expect(snapshot.modules.filter((module) => module.districtId === 'src/core')).toHaveLength(5000)
     expect(snapshot.modules.filter((module) => module.districtId === 'src/ui')).toHaveLength(905)
     expect(snapshot.modules.at(-1)?.id).toBe('src/ui/file-5904.ts')
-    expect(snapshot.notice).toContain('Alle 5.905')
+    expect(snapshot.notice).toBeUndefined()
     expect(fetcher).toHaveBeenCalledTimes(3)
   })
 
@@ -170,7 +170,7 @@ describe('GitHub repository import', () => {
       ),
     ).rejects.toThrow('8 MiB')
     expect(fetcher).toHaveBeenCalledTimes(3)
-    await expect(fetchGitHubFileLines(snapshot, snapshot.modules[0])).rejects.toThrow('Binärdaten')
+    await expect(fetchGitHubFileLines(snapshot, snapshot.modules[0])).rejects.toThrow('binary data')
   })
 
   it('rejects oversized responses even if tree metadata understates their size', async () => {
@@ -185,12 +185,16 @@ describe('GitHub repository import', () => {
           }),
       ),
     )
-    await expect(fetchGitHubFileLines(snapshot, snapshot.modules[0])).rejects.toThrow('Messlimit')
+    await expect(fetchGitHubFileLines(snapshot, snapshot.modules[0])).rejects.toThrow(
+      'measurement limit',
+    )
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => new Response(new Uint8Array(MAX_MEASUREMENT_BYTES + 1))),
     )
-    await expect(fetchGitHubFileLines(snapshot, snapshot.modules[0])).rejects.toThrow('Messlimit')
+    await expect(fetchGitHubFileLines(snapshot, snapshot.modules[0])).rejects.toThrow(
+      'measurement limit',
+    )
   })
 
   it('cancels pending file measurements and times them out', async () => {
@@ -215,7 +219,7 @@ describe('GitHub repository import', () => {
     controller.abort()
     await cancelled
     const timedOut = expect(fetchGitHubFileLines(snapshot, snapshot.modules[0])).rejects.toThrow(
-      'Messung dauert zu lange',
+      'Measurement timed out',
     )
     await vi.advanceTimersByTimeAsync(30_000)
     await timedOut
@@ -223,20 +227,20 @@ describe('GitHub repository import', () => {
 
   it('rejects truncated trees and repositories without supported source files', async () => {
     const fetcher = github([{ path: 'src/real.ts' }], { truncated: true })
-    await expect(fetchGitHubRepository('example/garden')).rejects.toThrow('Dateistruktur')
+    await expect(fetchGitHubRepository('example/garden')).rejects.toThrow('file tree')
     expect(fetcher).toHaveBeenCalledTimes(3)
     github([{ path: 'README.md' }])
     await expect(fetchGitHubRepository('example/garden')).rejects.toThrow(
-      'Keine unterstützten Quelldateien',
+      'No supported source files',
     )
   })
 
   it.each([
-    [404, 'nicht gefunden'],
-    [409, 'leer'],
-    [403, 'abgewiesen'],
+    [404, 'not found'],
+    [409, 'empty'],
+    [403, 'rejected'],
     [500, 'HTTP 500'],
-    [429, 'Anfragelimit'],
+    [429, 'rate limit'],
   ])('reports HTTP %i without returning invented data', async (status, message) => {
     vi.stubGlobal(
       'fetch',
@@ -259,7 +263,7 @@ describe('GitHub repository import', () => {
           }),
       ),
     )
-    await expect(fetchGitHubRepository('example/garden')).rejects.toThrow(/in etwa [56] Minuten/)
+    await expect(fetchGitHubRepository('example/garden')).rejects.toThrow(/in about [56] minutes/)
     vi.stubGlobal(
       'fetch',
       vi.fn(async () => {
@@ -267,7 +271,7 @@ describe('GitHub repository import', () => {
       }),
     )
     await expect(fetchGitHubRepository('example/garden')).rejects.toThrow(
-      'Verbindung zu GitHub fehlgeschlagen',
+      'Could not connect to GitHub',
     )
   })
 
@@ -279,7 +283,7 @@ describe('GitHub repository import', () => {
         ? Response.json({ commit: { sha: '../../other' } })
         : original(url, options),
     )
-    await expect(fetchGitHubRepository('example/garden')).rejects.toThrow('gültigen Commit')
+    await expect(fetchGitHubRepository('example/garden')).rejects.toThrow('valid commit')
   })
 
   it('aborts active downloads and starts no requests for an already cancelled import', async () => {
@@ -313,9 +317,7 @@ describe('GitHub repository import', () => {
           }),
       ),
     )
-    const result = expect(fetchGitHubRepository('example/garden')).rejects.toThrow(
-      'dauert zu lange',
-    )
+    const result = expect(fetchGitHubRepository('example/garden')).rejects.toThrow('timed out')
     await vi.advanceTimersByTimeAsync(120_000)
     await result
   })

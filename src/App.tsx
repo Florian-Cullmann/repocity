@@ -43,7 +43,7 @@ import { MiniMap } from './ui/MiniMap'
 import './styles.css'
 
 const CityScene = lazy(() => import('./scene/CityScene'))
-const format = new Intl.NumberFormat('de-DE', { notation: 'compact', maximumFractionDigits: 1 })
+const format = new Intl.NumberFormat('en-US', { notation: 'compact', maximumFractionDigits: 1 })
 type Source = RepositorySnapshot['source']
 
 function App() {
@@ -88,7 +88,7 @@ function App() {
   const sizeUnit =
     byteSized && totalSize > 0 ? Math.min(3, Math.floor(Math.log2(totalSize) / 10)) : 0
   const sizeLabel = byteSized
-    ? `${(totalSize / 1024 ** sizeUnit).toLocaleString('de-DE', { maximumFractionDigits: 1 })} ${['B', 'KiB', 'MiB', 'GiB'][sizeUnit]}`
+    ? `${(totalSize / 1024 ** sizeUnit).toLocaleString('en-US', { maximumFractionDigits: 1 })} ${['B', 'KiB', 'MiB', 'GiB'][sizeUnit]}`
     : format.format(totalSize)
   const onReady = useCallback(() => setReady(true), [])
   const camera = (type: CameraAction['type']) =>
@@ -117,7 +117,7 @@ function App() {
   async function generate(event: FormEvent) {
     event.preventDefault()
     if (!seedInput.trim()) {
-      setError('Bitte einen Seed eingeben.')
+      setError('Please enter a seed.')
       return
     }
     setError('')
@@ -140,20 +140,20 @@ function App() {
     }
     const controller = new AbortController()
     activeImport.current = controller
-    setImportProgress('Repository wird geladen …')
+    setImportProgress('Loading repository …')
     try {
       const snapshot = await fetchGitHubRepository(name, {
         signal: controller.signal,
         onProgress: (loaded, total) => {
           if (activeImport.current === controller && !controller.signal.aborted)
-            setImportProgress(`${loaded} von ${total} Quelldateien erfasst …`)
+            setImportProgress(`${loaded} of ${total} source files indexed …`)
         },
       })
       if (activeImport.current === controller && !controller.signal.aborted)
         showRepository(snapshot, seed)
     } catch (error) {
       if (activeImport.current === controller && !controller.signal.aborted)
-        setError(error instanceof Error ? error.message : 'Der Import ist fehlgeschlagen.')
+        setError(error instanceof Error ? error.message : 'The import failed.')
     } finally {
       if (activeImport.current === controller) {
         activeImport.current = null
@@ -165,7 +165,7 @@ function App() {
   return (
     <div className="app-shell">
       <header className="topbar">
-        <a href="./" className="brand" aria-label="RepoCity Startseite">
+        <a href="./" className="brand" aria-label="RepoCity home">
           <span className="brand-icon">
             <span />
             <span />
@@ -197,25 +197,11 @@ function App() {
           aria-expanded={sidebarOpen}
           aria-controls="explorer-sidebar"
         >
-          <Layers3 size={16} /> Stadt erkunden <ChevronDown size={15} />
+          <Layers3 size={16} /> Explore city <ChevronDown size={15} />
         </button>
         <aside id="explorer-sidebar" className={`sidebar ${sidebarOpen ? 'is-open' : ''}`}>
-          <div className="sidebar-intro">
-            <h1>
-              Eine neue
-              <br />
-              Perspektive
-              <br />
-              auf <em>Code.</em>
-            </h1>
-            <p>
-              Aus Modulen werden Gebäude.
-              <br />
-              Aus Zusammenhängen eine Stadt.
-            </p>
-          </div>
           <form className="generator" onSubmit={generate}>
-            <label htmlFor="repository-source">Datenquelle</label>
+            <label htmlFor="repository-source">Data source</label>
             <select
               id="repository-source"
               className="source-select"
@@ -226,18 +212,14 @@ function App() {
                 setError('')
               }}
             >
-              <option value="github">GitHub · öffentliches Repository</option>
-              <option value="local">RepoCity · Startbeispiel</option>
-              <option value="mock">Demo · fiktive Mockdaten</option>
+              <option value="github">GitHub · public repository</option>
+              <option value="local">RepoCity · example project</option>
+              <option value="mock">Demo · sample data</option>
             </select>
             <label htmlFor="repository">
               Repository{' '}
               <span className="tiny-badge">
-                {sourceInput === 'github'
-                  ? 'GITHUB'
-                  : sourceInput === 'local'
-                    ? 'BEISPIEL'
-                    : 'DEMO'}
+                {sourceInput === 'github' ? 'GITHUB' : sourceInput === 'local' ? 'EXAMPLE' : 'DEMO'}
               </span>
             </label>
             <div className="input-with-icon">
@@ -258,8 +240,7 @@ function App() {
               />
             </div>
             <div className="seed-row">
-              <label htmlFor="seed">Stadt-Seed</label>
-              <span>Gleicher Seed. Gleiche Stadt.</span>
+              <label htmlFor="seed">City seed</label>
             </div>
             <div className="input-with-icon">
               <Sprout size={16} />
@@ -276,7 +257,7 @@ function App() {
               <button
                 type="button"
                 className="icon-button"
-                aria-label="Zufälligen Seed wählen"
+                aria-label="Choose a random seed"
                 onClick={() => {
                   cancelImport()
                   setSeedInput(`city-${crypto.getRandomValues(new Uint32Array(1))[0].toString(36)}`)
@@ -287,25 +268,25 @@ function App() {
             </div>
             {sourceInput === 'mock' ? (
               <div className="size-row">
-                <label htmlFor="city-size">Stadtgröße</label>
+                <label htmlFor="city-size">City size</label>
                 <select
                   id="city-size"
                   value={countInput}
                   onChange={(event) => setCountInput(Number(event.target.value))}
                 >
-                  <option value={96}>Kleinstadt · 96</option>
-                  <option value={256}>Großstadt · 256</option>
-                  <option value={768}>Metropole · 768</option>
+                  <option value={96}>Small town · 96</option>
+                  <option value={256}>City · 256</option>
+                  <option value={768}>Metropolis · 768</option>
                 </select>
               </div>
             ) : sourceInput === 'local' ? (
               <p className="source-details">
-                {localRepository.modules.length} Quelldateien · {localRepository.districts.length}{' '}
-                Ordner. Jede Datei ein Gebäude, jeder Ordner ein Viertel.
+                {localRepository.modules.length} source files · {localRepository.districts.length}{' '}
+                folders. Each file is a building; each folder a district.
               </p>
             ) : (
               <p className="source-details">
-                GitHub-URL oder owner/repository eingeben. Jede Quelldatei wird ein Gebäude.
+                Enter a GitHub URL or owner/repository. Each source file becomes a building.
               </p>
             )}
             {error && (
@@ -316,10 +297,10 @@ function App() {
             <button className="primary-button" disabled={pending} type="submit">
               <Sparkles size={16} />
               {pending
-                ? 'Stadt entsteht …'
+                ? 'Building city …'
                 : sourceInput === 'github'
-                  ? 'Repository laden'
-                  : 'Stadt generieren'}
+                  ? 'Load repository'
+                  : 'Generate city'}
               <ArrowRight size={16} />
             </button>
             {importProgress !== null && (
@@ -328,23 +309,20 @@ function App() {
                   {importProgress}
                 </p>
                 <button type="button" onClick={cancelImport}>
-                  Import abbrechen
+                  Cancel import
                 </button>
               </div>
             )}
-            <p className="source-note">
-              <span className="status-dot" />
-              {sourceInput === 'github'
-                ? 'Direkt von GitHub. Ohne Anmeldung.'
-                : sourceInput === 'local'
-                  ? 'Lokal gemessen. Keine GitHub-Verbindung.'
-                  : 'Lokale Mockdaten. Keine GitHub-Verbindung.'}
-            </p>
-            {repository.notice && <p className="import-notice">{repository.notice}</p>}
+            {sourceInput !== 'github' && (
+              <p className="source-note">
+                <span className="status-dot" />
+                {sourceInput === 'local' ? 'Measured locally.' : 'Fictional demo data.'}
+              </p>
+            )}
           </form>
-          <section className="district-section" aria-label="Stadtviertel">
+          <section className="district-section" aria-label="Districts">
             <div className="section-heading">
-              <h2>Stadtviertel</h2>
+              <h2>Districts</h2>
               <span>{String(repository.districts.length).padStart(2, '0')}</span>
             </div>
             <div className="district-list">
@@ -371,7 +349,7 @@ function App() {
               ))}
             </div>
             <label className="module-select-label" htmlFor="module-select">
-              Oder ein Modul direkt erkunden
+              Explore a module directly
             </label>
             <select
               id="module-select"
@@ -379,7 +357,7 @@ function App() {
               value={visibleModules.some((m) => m.id === selectedId) ? (selectedId ?? '') : ''}
               onChange={(event) => selectModule(event.target.value || null)}
             >
-              <option value="">Gebäude auswählen …</option>
+              <option value="">Choose a building …</option>
               {visibleModules.map((module) => (
                 <option key={module.id} value={module.id}>
                   {module.name}
@@ -390,14 +368,14 @@ function App() {
           <div className="sidebar-footer">
             <span className="small-brand">⌘</span>
             <span>
-              Für Neugier gebaut.
+              Built for curiosity.
               <br />
-              <strong>Mit einer anderen Sicht auf Software.</strong>
+              <strong>A fresh perspective on software.</strong>
             </span>
           </div>
         </aside>
 
-        <section className="city-stage" aria-label="Interaktive 3D-Stadt" aria-busy={pending}>
+        <section className="city-stage" aria-label="Interactive 3D city" aria-busy={pending}>
           <div className="scene-heading">
             <div className="repo-title">
               <h2>{repository.name.split('/').at(-1)}</h2>
@@ -405,7 +383,7 @@ function App() {
                 {repository.source === 'github'
                   ? 'GitHub'
                   : repository.source === 'local'
-                    ? 'Echte Daten'
+                    ? 'Real data'
                     : 'Mock City'}
               </span>
             </div>
@@ -416,7 +394,7 @@ function App() {
                 {repository.revision
                   ? `${repository.revision.branch} · ${repository.revision.commit.slice(0, 7)}`
                   : repository.source === 'local'
-                    ? 'Startbeispiel'
+                    ? 'Example project'
                     : 'Demo'}
               </span>
             </p>
@@ -425,17 +403,17 @@ function App() {
             <div>
               <Box size={16} />
               <strong>{city.buildings.length}</strong>
-              <span>Gebäude</span>
+              <span>Buildings</span>
             </div>
             <div>
               <Layers3 size={16} />
               <strong>{format.format(totalFiles)}</strong>
-              <span>Dateien</span>
+              <span>Files</span>
             </div>
             <div>
               <ArrowDownUp size={16} />
               <strong>{sizeLabel}</strong>
-              <span>{byteSized ? 'Quellcode' : 'Codezeilen'}</span>
+              <span>{byteSized ? 'Source code' : 'Lines of code'}</span>
             </div>
           </div>
           <div className="canvas-wrap" data-testid="city-canvas" data-ready={ready}>
@@ -445,7 +423,7 @@ function App() {
                   <span className="loading-mark">
                     <Layers3 size={28} />
                   </span>
-                  Deine Stadt entsteht …
+                  Building your city …
                 </div>
               }
             >
@@ -462,7 +440,7 @@ function App() {
           {focusDistrict && (
             <button className="filter-pill panel" onClick={() => setFocusDistrict(null)}>
               <span className="status-dot" />
-              {repository.districts.find((d) => d.id === focusDistrict)?.name} hervorgehoben
+              {repository.districts.find((d) => d.id === focusDistrict)?.name} highlighted
               <X size={13} />
             </button>
           )}
@@ -479,28 +457,24 @@ function App() {
                 <MousePointer2 size={17} />
               </span>
               <div>
-                <strong>Jedes Gebäude erzählt eine Geschichte.</strong>
-                <span>Klicke auf ein Haus und entdecke sein Modul.</span>
+                <strong>Every building tells a story.</strong>
+                <span>Click a building to explore its module.</span>
               </div>
             </div>
           )}
           <MiniMap city={city} selectedId={selectedId} onSelect={selectModule} />
-          <div className="view-tools panel" aria-label="Kamerasteuerung">
-            <button aria-label="Vergrößern" title="Vergrößern" onClick={() => camera('in')}>
+          <div className="view-tools panel" aria-label="Camera controls">
+            <button aria-label="Zoom in" title="Zoom in" onClick={() => camera('in')}>
               <Plus size={18} />
             </button>
-            <button aria-label="Verkleinern" title="Verkleinern" onClick={() => camera('out')}>
+            <button aria-label="Zoom out" title="Zoom out" onClick={() => camera('out')}>
               <Minus size={18} />
             </button>
             <span />
-            <button aria-label="Stadt drehen" title="45° drehen" onClick={() => camera('rotate')}>
+            <button aria-label="Rotate city" title="Rotate 45°" onClick={() => camera('rotate')}>
               <RotateCw size={17} />
             </button>
-            <button
-              aria-label="Ansicht zurücksetzen"
-              title="Ansicht zurücksetzen"
-              onClick={() => camera('reset')}
-            >
+            <button aria-label="Reset view" title="Reset view" onClick={() => camera('reset')}>
               <Maximize2 size={17} />
             </button>
           </div>
@@ -512,10 +486,10 @@ function App() {
             <div>
               <span className="status-dot" />
               {importProgress !== null
-                ? 'Repository wird geladen …'
+                ? 'Loading repository …'
                 : pending
-                  ? 'Wird generiert …'
-                  : 'Alles bereit zum Erkunden'}
+                  ? 'Generating …'
+                  : 'Ready to explore'}
               <span className="bottom-divider" />
               <code>seed: {config.seed}</code>
             </div>
@@ -525,17 +499,17 @@ function App() {
               aria-controls="controls-help"
             >
               <HelpCircle size={15} />
-              <span>Steuerung</span>
+              <span>Controls</span>
             </button>
           </div>
           {helpOpen && (
             <div className="help-card panel" id="controls-help">
               <div className="section-heading">
-                <h2>Deine Stadt erkunden</h2>
+                <h2>Explore your city</h2>
                 <button
                   className="icon-button"
                   onClick={() => setHelpOpen(false)}
-                  aria-label="Steuerung schließen"
+                  aria-label="Close controls"
                 >
                   <X size={15} />
                 </button>
@@ -543,25 +517,25 @@ function App() {
               <p>
                 <RotateCw size={15} />
                 <span>
-                  <strong>Drehen</strong> Linke Maustaste ziehen · ein Finger
+                  <strong>Rotate</strong> Drag with the left mouse button · one finger
                 </span>
               </p>
               <p>
                 <LocateFixed size={15} />
                 <span>
-                  <strong>Verschieben</strong> Rechte Maustaste ziehen · zwei Finger
+                  <strong>Pan</strong> Drag with the right mouse button · two fingers
                 </span>
               </p>
               <p>
                 <Plus size={15} />
                 <span>
-                  <strong>Zoomen</strong> Scrollrad · Pinch-Geste
+                  <strong>Zoom</strong> Scroll wheel · pinch gesture
                 </span>
               </p>
               <p>
                 <Map size={15} />
                 <span>
-                  <strong>Entdecken</strong> Gebäude anklicken oder Modul links wählen
+                  <strong>Explore</strong> Click a building or choose a module on the left
                 </span>
               </p>
             </div>

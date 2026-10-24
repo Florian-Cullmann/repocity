@@ -1,3 +1,5 @@
+import { Color } from 'three'
+import { randomFromSeed } from '../city/random'
 import type { CityBuilding } from '../city/types'
 import { primitiveWriter, type AddPrimitive, type CityGeometry } from './primitives'
 
@@ -19,10 +21,14 @@ export function addBuilding(geometry: CityGeometry, building: CityBuilding, comp
     )
   }
   const [x, y, z] = building.position
-  const { width: w, depth: d, height: h, floors, color, style } = building
-  const cream = '#fff1d5'
-  const glass = '#365c64'
-  const slab = '#ecded1'
+  const { width: w, depth: d, height: h, floors, style } = building
+  const rng = randomFromSeed(`${building.id}:materials`)
+  const color =
+    '#' + new Color(building.color).lerp(new Color('#e4d8c4'), rng() * 0.4).getHexString()
+  const roof = ['#a36e5d', '#6d7779', '#7b7065', '#b8876a', '#586970'][Math.floor(rng() * 5)]
+  const cream = '#eee7d9'
+  const glass = '#435963'
+  const slab = '#d5c9b6'
   const setback = style === 'terrace'
   const round = style === 'tower'
   add('box', [x, y + 0.12, z], [w + 0.5, 0.24, d + 0.5], '#cec9b4')
@@ -30,14 +36,26 @@ export function addBuilding(geometry: CityGeometry, building: CityBuilding, comp
   if (compact) {
     add(round ? 'cylinder' : 'box', [x, y + h / 2, z], [w, h, d], color)
     for (const side of [-1, 1]) {
-      add('box', [x, y + h / 2, z + side * (d / 2 + 0.02)], [w * 0.65, h * 0.8, 0.04], glass)
-      add('box', [x + side * (w / 2 + 0.02), y + h / 2, z], [0.04, h * 0.8, d * 0.65], glass)
+      for (const column of [-1, 1]) {
+        add(
+          'box',
+          [x + column * w * 0.23, y + h / 2, z + side * (d / 2 + 0.02)],
+          [w * 0.22, h * 0.8, 0.04],
+          glass,
+        )
+        add(
+          'box',
+          [x + side * (w / 2 + 0.02), y + h / 2, z + column * d * 0.23],
+          [0.04, h * 0.8, d * 0.22],
+          glass,
+        )
+      }
     }
     for (let f = 2; f < floors; f += 3) {
       add(round ? 'cylinder' : 'box', [x, y + f * 1.12, z], [w + 0.1, 0.13, d + 0.1], slab)
     }
-    if (style === 'gable' && floors < 9) {
-      add('roof', [x, y + h + 0.7, z], [(w + 0.4) * 1.42, 1.4, (d + 0.4) * 1.42], '#a96459', [
+    if (style === 'gable' && floors <= 5) {
+      add('roof', [x, y + h + 0.7, z], [(w + 0.4) * 1.42, 1.4, (d + 0.4) * 1.42], roof, [
         0,
         Math.PI / 4,
         0,
@@ -87,7 +105,7 @@ export function addBuilding(geometry: CityGeometry, building: CityBuilding, comp
     const fd = d - inset
     const fy = y + f * 1.12
     add('box', [x, fy + 0.62, z], [fw, 1.05, fd], color)
-    add('box', [x, fy + 1.12, z], [fw + 0.16, 0.14, fd + 0.16], f === floors - 1 ? cream : slab)
+    add('box', [x, fy + 1.12, z], [fw + 0.12, 0.09, fd + 0.12], f === floors - 1 ? cream : color)
     for (let window = 0; window < 3; window++) {
       const offsetX = (window - 1) * fw * 0.27
       const offsetZ = (window - 1) * fd * 0.27
@@ -129,8 +147,8 @@ export function addBuilding(geometry: CityGeometry, building: CityBuilding, comp
     [1.4, 0.14, 0.8],
     style === 'gable' ? '#db7463' : cream,
   )
-  if (style === 'gable' && floors < 9) {
-    add('roof', [x, top + 0.7, z], [(roofW + 0.4) * 1.42, 1.4, (roofD + 0.4) * 1.42], '#a96459', [
+  if (style === 'gable' && floors <= 5) {
+    add('roof', [x, top + 0.7, z], [(roofW + 0.4) * 1.42, 1.4, (roofD + 0.4) * 1.42], roof, [
       0,
       Math.PI / 4,
       0,

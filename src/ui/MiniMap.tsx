@@ -12,7 +12,7 @@ export function MiniMap({
   return (
     <div className="minimap panel" aria-hidden="true">
       <div>
-        <span>STADTPLAN</span>
+        <span>CITY MAP</span>
         <span>N ↑</span>
       </div>
       <svg viewBox={`${-city.size / 2} ${-city.size / 2} ${city.size} ${city.size}`}>
@@ -74,7 +74,7 @@ export function MiniMap({
         ))}
         <circle cx={city.landmark.x} cy={city.landmark.z} r={2} fill="#d76c53" />
       </svg>
-      <span className="minimap-caption">Ein kleiner Ort für große Ideen.</span>
+      <span className="minimap-caption">A small place for big ideas.</span>
     </div>
   )
 }

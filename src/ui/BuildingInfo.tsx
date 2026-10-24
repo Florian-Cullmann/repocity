@@ -44,7 +44,7 @@ export function BuildingInfo({
           if (!controller.signal.aborted)
             setMeasurement({
               key,
-              error: error instanceof Error ? error.message : 'Die Messung ist fehlgeschlagen.',
+              error: error instanceof Error ? error.message : 'The measurement failed.',
             })
         })
     })
@@ -53,16 +53,12 @@ export function BuildingInfo({
   const current = measurement?.key === key ? measurement : null
   const lines = module.metrics.lines ?? current?.lines
   return (
-    <aside className="building-info panel" aria-label="Gebäudeinformationen" aria-live="polite">
+    <aside className="building-info panel" aria-label="Building information" aria-live="polite">
       <div className="info-eyebrow">
         <span>
-          <span className="status-dot" style={{ background: district.color }} /> MODUL ENTDECKT
+          <span className="status-dot" style={{ background: district.color }} /> MODULE DISCOVERED
         </span>
-        <button
-          className="icon-button"
-          onClick={onClose}
-          aria-label="Gebäudeinformationen schließen"
-        >
+        <button className="icon-button" onClick={onClose} aria-label="Close building information">
           <X size={17} />
         </button>
       </div>
@@ -85,42 +81,42 @@ export function BuildingInfo({
           <FileCode2 size={15} />
           <strong className={lines === undefined ? 'unavailable-metric' : ''}>
             {lines !== undefined
-              ? lines.toLocaleString('de-DE')
+              ? lines.toLocaleString('en-US')
               : current?.error
-                ? 'Nicht gemessen'
-                : 'Wird gemessen …'}
+                ? 'Not measured'
+                : 'Measuring …'}
           </strong>
-          <span>Codezeilen</span>
+          <span>Lines of code</span>
         </div>
         <div>
           <Layers3 size={15} />
           <strong>{module.metrics.files}</strong>
-          <span>Dateien</span>
+          <span>Files</span>
         </div>
         <div>
           <Network size={15} />
           <strong className={module.metrics.dependencies === null ? 'unavailable-metric' : ''}>
-            {module.metrics.dependencies ?? 'Nicht verfügbar'}
+            {module.metrics.dependencies ?? 'Not available'}
           </strong>
-          <span>Abhängigkeiten</span>
+          <span>Dependencies</span>
         </div>
       </div>
       {repository.sizeMetric === 'bytes' && (
         <p className="measurement-note">
-          Gebäudehöhe: {(module.metrics.bytes ?? 0).toLocaleString('de-DE')} Bytes.
-          {lines !== undefined && ' Codezeilen: nichtleere Zeilen einschließlich Kommentaren.'}
+          Building height: {(module.metrics.bytes ?? 0).toLocaleString('en-US')} bytes.
+          {lines !== undefined && ' Lines of code: non-empty lines, including comments.'}
         </p>
       )}
       {current?.error && (
         <p className="measurement-error" role="status">
           {current.error}{' '}
-          <button onClick={() => setRetry((value) => value + 1)}>Erneut messen</button>
+          <button onClick={() => setRetry((value) => value + 1)}>Measure again</button>
         </p>
       )}
       <div className="coverage-label">
-        <span>Testabdeckung</span>
+        <span>Test coverage</span>
         <strong>
-          {module.metrics.coverage === null ? 'Nicht verfügbar' : `${module.metrics.coverage} %`}
+          {module.metrics.coverage === null ? 'Not available' : `${module.metrics.coverage} %`}
         </strong>
       </div>
       {module.metrics.coverage !== null && (
@@ -138,10 +134,10 @@ export function BuildingInfo({
             target="_blank"
             rel="noreferrer"
           >
-            Auf GitHub ansehen <ArrowUpRight size={12} />
+            View on GitHub <ArrowUpRight size={12} />
           </a>
         ) : (
-          <span>{repository.source === 'mock' ? 'Mockdaten' : 'Lokale Quelldaten'}</span>
+          <span>{repository.source === 'mock' ? 'Sample data' : 'Local source data'}</span>
         )}
       </div>
     </aside>

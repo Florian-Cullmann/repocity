@@ -1,5 +1,6 @@
 import {
   Component,
+  useCallback,
   useEffect,
   useLayoutEffect,
   useMemo,
@@ -24,6 +25,7 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import type { CityLayout } from '../city/types'
 import type { Instance, Shape } from './primitives'
 import { compileCity } from './compileCity'
+import { cameraZoom } from './camera'
 
 export interface CameraAction {
   type: 'reset' | 'in' | 'out' | 'rotate'
@@ -160,22 +162,33 @@ function BuildingPicking({
 
 function CameraRig({ size, action }: { size: number; action: CameraAction }) {
   const controls = useRef<OrbitControlsImpl>(null)
-  const { camera, size: viewport, invalidate } = useThree()
-  const baseZoom = Math.min(viewport.width / (size * 1.46), viewport.height / (size * 1.27)) * 0.94
+  const { camera, size: viewport, invalidate, gl } = useThree()
+  const {
+    overview: baseZoom,
+    far,
+    min: minZoom,
+    max: maxZoom,
+  } = cameraZoom(viewport.width, viewport.height, size)
+  const reportZoom = useCallback(() => {
+    gl.domElement.dataset.far = String((camera as OrthographicCamera).far)
+    gl.domElement.dataset.zoom = ((camera as OrthographicCamera).zoom / baseZoom).toFixed(2)
+  }, [camera, gl, baseZoom])
   useEffect(() => {
     const ortho = camera as OrthographicCamera
-    ortho.position.set(size, size * 0.94, size * 1.18)
+    ortho.position.set(size * 0.85, size * 1.15, size)
     ortho.zoom = baseZoom
+    ortho.far = far
     ortho.lookAt(0, 1, 0)
     ortho.updateProjectionMatrix()
     controls.current?.target.set(0, 1, 0)
     controls.current?.update()
+    reportZoom()
     invalidate()
-  }, [camera, size, baseZoom, invalidate])
+  }, [camera, size, baseZoom, far, invalidate, reportZoom])
   useEffect(() => {
     const ortho = camera as OrthographicCamera
     if (action.type === 'reset') {
-      ortho.position.set(size, size * 0.94, size * 1.18)
+      ortho.position.set(size * 0.85, size * 1.15, size)
       ortho.zoom = baseZoom
       controls.current?.target.set(0, 1, 0)
     } else if (action.type === 'rotate') {
@@ -186,12 +199,13 @@ function CameraRig({ size, action }: { size: number; action: CameraAction }) {
         .add(target)
     } else {
       ortho.zoom = Math.max(
-        baseZoom * 0.45,
-        Math.min(baseZoom * 6, ortho.zoom * (action.type === 'in' ? 1.25 : 0.8)),
+        minZoom,
+        Math.min(maxZoom, ortho.zoom * (action.type === 'in' ? 1.35 : 1 / 1.35)),
       )
     }
     ortho.updateProjectionMatrix()
     controls.current?.update()
+    reportZoom()
     invalidate()
     // Actions are commands; viewport and city changes are handled separately above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -202,8 +216,10 @@ function CameraRig({ size, action }: { size: number; action: CameraAction }) {
       makeDefault
       enableDamping
       dampingFactor={0.12}
-      minZoom={baseZoom * 0.45}
-      maxZoom={baseZoom * 6}
+      minZoom={minZoom}
+      maxZoom={maxZoom}
+      zoomToCursor
+      onChange={reportZoom}
       minPolarAngle={0.12}
       maxPolarAngle={Math.PI / 2.15}
       screenSpacePanning
@@ -299,12 +315,12 @@ class SceneErrorBoundary extends Component<{ children: ReactNode }, { error: boo
   render() {
     return this.state.error ? (
       <div className="scene-error">
-        <strong>Die 3D-Ansicht konnte nicht starten.</strong>
+        <strong>The 3D view could not start.</strong>
         <p>
-          Bitte aktiviere WebGL bzw. Hardwarebeschleunigung im Browser. Die Module kannst du
-          weiterhin links erkunden.
+          Enable WebGL or hardware acceleration in your browser. You can still explore modules from
+          the sidebar.
         </p>
-        <button onClick={() => window.location.reload()}>Erneut versuchen</button>
+        <button onClick={() => window.location.reload()}>Try again</button>
       </div>
     ) : (
       this.props.children
@@ -332,7 +348,7 @@ export default function CityScene(props: Props) {
         }}
         fallback={
           <div className="scene-error">
-            WebGL ist nicht verfügbar. Du kannst die Module über die Seitenleiste auswählen.
+            WebGL is unavailable. You can select modules from the sidebar.
           </div>
         }
       >

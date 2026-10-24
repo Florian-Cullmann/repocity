@@ -119,7 +119,7 @@ describe('local repository analysis', () => {
   })
 
   it('reports empty or missing projects instead of inventing modules', async () => {
-    await expect(analyzeRepository(root)).rejects.toThrow('Keine unterstützten Quelldateien')
+    await expect(analyzeRepository(root)).rejects.toThrow('No supported source files')
     await expect(analyzeRepository(join(root, 'missing'))).rejects.toThrow('ENOENT')
   })
 
@@ -139,11 +139,11 @@ describe('local repository analysis', () => {
       encoding: 'utf8',
     })
     expect(invalid.status).toBe(1)
-    expect(invalid.stderr).toContain('genau ein Projektverzeichnis')
+    expect(invalid.stderr).toContain('exactly one project directory')
     const missing = spawnSync(process.execPath, ['scripts/analyze.mjs', join(root, 'missing')], {
       encoding: 'utf8',
     })
     expect(missing.status).toBe(1)
-    expect(missing.stderr).toContain('Analyse fehlgeschlagen:')
+    expect(missing.stderr).toContain('Analysis failed:')
   })
 })

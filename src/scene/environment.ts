@@ -120,7 +120,7 @@ export function addEnvironment(geometry: CityGeometry, city: CityLayout) {
     local(
       'box',
       [0, 0.42, 0],
-      [w - 1.1, 0.04, d - 1.1],
+      [w - 3.8, 0.04, d - 3.8],
       block.kind === 'plaza' ? '#e4d9bd' : '#a4b982',
       undefined,
       shear,
@@ -129,9 +129,20 @@ export function addEnvironment(geometry: CityGeometry, city: CityLayout) {
       local('box', [0, 0.46, 0], [1.4, 0.06, d - 1], '#ded6bb', undefined, shear)
       local('box', [0, 0.46, 0], [w - 1, 0.06, 1.4], '#ded6bb')
       if (block.kind !== 'plaza') {
-        local('cylinder', [0, 0.6, 0], [4.5, 0.3, 4.5], '#e9e1cb')
-        local('cylinder', [0, 0.77, 0], [3.7, 0.08, 3.7], '#79bbc1')
-        local('cylinder', [0, 1.02, 0], [0.8, 0.55, 0.8], '#e9e1cb')
+        const amenity = rng()
+        if (amenity < 0.35) {
+          // A neighbourhood pond set among trees.
+          local('cylinder', [0, 0.55, 0], [7, 0.16, 5], '#d6cbb2')
+          local('cylinder', [0, 0.65, 0], [6.2, 0.06, 4.2], '#79afb3')
+        } else if (amenity < 0.7) {
+          // Small paved play court; its markings remain visible in close-up.
+          local('box', [0, 0.52, 0], [7, 0.08, 10], '#b98a72')
+          for (const side of [-1, 1]) {
+            local('box', [side * 3, 0.57, 0], [0.1, 0.025, 9], '#ede6d4')
+            local('box', [0, 0.57, side * 4.5], [6, 0.025, 0.1], '#ede6d4')
+          }
+          local('box', [0, 0.57, 0], [6, 0.025, 0.1], '#ede6d4')
+        }
       } else {
         local('box', [0, 0.46, 0], [9, 0.08, 8], '#d0c5aa')
         // Market awnings give the civic square a human scale.
@@ -145,7 +156,7 @@ export function addEnvironment(geometry: CityGeometry, city: CityLayout) {
       local(
         'box',
         [0, 0.46, 0],
-        [alongZ ? 1 : w - 2, 0.06, alongZ ? d - 2 : 1],
+        [alongZ ? 1 : Math.max(1, w - 20), 0.06, alongZ ? Math.max(1, d - 20) : 1],
         '#d7cfb5',
         undefined,
         alongZ ? shear : 0,
@@ -190,7 +201,7 @@ export function addEnvironment(geometry: CityGeometry, city: CityLayout) {
       'box',
       [0, y - 0.08, 0],
       [road.width, 0.16, length + 0.06],
-      road.bridge ? '#788887' : '#728080',
+      road.bridge ? '#788887' : '#697371',
     )
     if (road.kind === 'avenue') {
       for (let p = -length / 2 + 3; p < length / 2 - 2; p += 3.4) {

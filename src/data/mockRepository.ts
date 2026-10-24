@@ -2,17 +2,17 @@ import type { District, RepositorySnapshot } from '../domain/repository'
 import { randomFromSeed } from '../city/random'
 
 export const districts: District[] = [
-  { id: 'core', name: 'Core District', subtitle: 'Das Herz der Anwendung', color: '#ed9a72' },
+  { id: 'core', name: 'Core District', subtitle: 'The heart of the application', color: '#ed9a72' },
   {
     id: 'interface',
     name: 'Design Quarter',
-    subtitle: 'Komponenten & Oberflächen',
+    subtitle: 'Components & interfaces',
     color: '#b3a2d8',
   },
-  { id: 'services', name: 'Service Heights', subtitle: 'APIs & Geschäftslogik', color: '#7dbab4' },
-  { id: 'data', name: 'Data Gardens', subtitle: 'Daten & Zustandsverwaltung', color: '#a9bc78' },
-  { id: 'tooling', name: 'Workshop Lane', subtitle: 'Werkzeuge & Infrastruktur', color: '#e9bd63' },
-  { id: 'tests', name: 'Quality Park', subtitle: 'Tests & Dokumentation', color: '#90b5d2' },
+  { id: 'services', name: 'Service Heights', subtitle: 'APIs & business logic', color: '#7dbab4' },
+  { id: 'data', name: 'Data Gardens', subtitle: 'Data & state management', color: '#a9bc78' },
+  { id: 'tooling', name: 'Workshop Lane', subtitle: 'Tools & infrastructure', color: '#e9bd63' },
+  { id: 'tests', name: 'Quality Park', subtitle: 'Tests & documentation', color: '#90b5d2' },
 ]
 
 const names: Record<string, string[]> = {
@@ -86,7 +86,7 @@ export function createMockRepository(name = 'acme / atlas', count = 96): Reposit
         path: `src/${district.id}/${moduleName}`,
         districtId: district.id,
         language: 'TypeScript',
-        description: `${moduleName} bündelt ${district.subtitle.toLowerCase()} und bildet einen eigenständigen Baustein der Anwendung. Fiktive Beispieldaten zum Erkunden der Stadt.`,
+        description: `${moduleName} handles ${district.subtitle.toLowerCase()} as an independent part of the application. Fictional sample data for exploring the city.`,
         metrics: {
           lines: Math.round(300 + rng() ** 1.6 * 9500),
           files: Math.ceil(3 + rng() * 38),

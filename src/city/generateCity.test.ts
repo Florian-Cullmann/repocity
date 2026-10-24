@@ -109,6 +109,36 @@ describe('deterministic city generation', () => {
       ),
     ).toBe(true)
   })
+  it.each(['hello-world', 'urban', 'riverfront'])(
+    'builds four-sided blocks without long strips (%s)',
+    (seed) => {
+      const city = generateCity(createMockRepository('urban/repo', 768), { seed })
+      const buildingsByBlock = new Map<string, CityBuilding[]>()
+      for (const building of city.buildings) {
+        const group = buildingsByBlock.get(building.blockId) ?? []
+        group.push(building)
+        buildingsByBlock.set(building.blockId, group)
+      }
+      expect(city.blocks.every((b) => Math.max(b.width / b.depth, b.depth / b.width) < 2.5)).toBe(
+        true,
+      )
+      expect(
+        [...buildingsByBlock.values()].filter(
+          (group) => new Set(group.map((building) => Math.round(building.rotation * 10))).size >= 4,
+        ).length,
+      ).toBeGreaterThan(buildingsByBlock.size / 2)
+      for (const group of buildingsByBlock.values()) {
+        for (let i = 0; i < group.length; i++) {
+          for (let j = i + 1; j < group.length; j++)
+            expect(overlaps(group[i], group[j])).toBe(false)
+        }
+      }
+      const size = city.size
+      expect(
+        city.river.points.some(([x]) => Math.abs(x - city.river.points[0][0]) > size * 0.02),
+      ).toBe(true)
+    },
+  )
   it('uses byte sizes consistently and keeps heights stable when lines are measured later', () => {
     const snapshot = createMockRepository('bytes/repo', 2)
     snapshot.sizeMetric = 'bytes'
@@ -158,13 +188,13 @@ describe('deterministic city generation', () => {
   it('rejects invalid adapter data instead of silently dropping modules', () => {
     const snapshot = createMockRepository('test/repo', 2)
     snapshot.modules[1].id = snapshot.modules[0].id
-    expect(() => generateCity(snapshot, { seed: 'x' })).toThrow('eindeutig')
+    expect(() => generateCity(snapshot, { seed: 'x' })).toThrow('unique')
     snapshot.modules[1].id = 'unique'
     snapshot.modules[1].districtId = 'missing'
-    expect(() => generateCity(snapshot, { seed: 'x' })).toThrow('Unbekanntes Viertel')
+    expect(() => generateCity(snapshot, { seed: 'x' })).toThrow('Unknown district')
     snapshot.modules[1].districtId = 'core'
     snapshot.modules[1].metrics.lines = NaN
-    expect(() => generateCity(snapshot, { seed: 'x' })).toThrow('Ungültige Metriken')
+    expect(() => generateCity(snapshot, { seed: 'x' })).toThrow('Invalid metrics')
   })
   it('accepts unavailable optional metrics and preserves measured zero values', () => {
     const snapshot = createMockRepository('test/repo', 2)
@@ -187,7 +217,7 @@ describe('deterministic city generation', () => {
   ])('rejects invalid metrics %j', (metrics) => {
     const snapshot = createMockRepository('test/repo', 1)
     Object.assign(snapshot.modules[0].metrics, metrics)
-    expect(() => generateCity(snapshot, { seed: 'invalid' })).toThrow('Ungültige Metriken')
+    expect(() => generateCity(snapshot, { seed: 'invalid' })).toThrow('Invalid metrics')
   })
 })
 

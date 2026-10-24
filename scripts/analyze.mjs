@@ -13,9 +13,9 @@ try {
     },
   })
   if (values.help) {
-    console.log('Aufruf: npm run analyze -- [Verzeichnis] [--name Name] [--output snapshot.json]')
+    console.log('Usage: npm run analyze -- [directory] [--name name] [--output snapshot.json]')
   } else {
-    if (positionals.length > 1) throw new Error('Bitte genau ein Projektverzeichnis angeben.')
+    if (positionals.length > 1) throw new Error('Please specify exactly one project directory.')
     const snapshot = await analyzeRepository(resolve(positionals[0] || '.'), { name: values.name })
     const json = `${JSON.stringify(snapshot, null, 2)}\n`
     if (values.output) {
@@ -23,13 +23,13 @@ try {
       await mkdir(dirname(destination), { recursive: true })
       await writeFile(destination, json)
       console.log(
-        `${snapshot.name}: ${snapshot.modules.length} Gebäude, ${snapshot.districts.length} Viertel → ${values.output}`,
+        `${snapshot.name}: ${snapshot.modules.length} Buildings, ${snapshot.districts.length} Districts → ${values.output}`,
       )
     } else {
       process.stdout.write(json)
     }
   }
 } catch (error) {
-  console.error(`Analyse fehlgeschlagen: ${error instanceof Error ? error.message : String(error)}`)
+  console.error(`Analysis failed: ${error instanceof Error ? error.message : String(error)}`)
   process.exitCode = 1
 }

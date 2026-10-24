@@ -8,7 +8,7 @@ import {
 
 export const MAX_MEASUREMENT_BYTES = 8 * 1024 * 1024
 const IMPORT_TIMEOUT_MS = 120_000
-const INVALID_REPOSITORY = 'Bitte eine GitHub-Repository-URL oder owner/repository eingeben.'
+const INVALID_REPOSITORY = 'Please enter a GitHub repository URL or owner/repository.'
 
 /** Accept repository homepages only; never use an arbitrary input URL as a fetch destination. */
 export function parseGitHubRepository(input: string): string {
@@ -60,31 +60,28 @@ function httpError(response: Response, file = false): Error {
     const reset = Number(response.headers.get('x-ratelimit-reset'))
     const minutes = reset > 0 ? Math.max(1, Math.ceil((reset * 1000 - Date.now()) / 60_000)) : null
     return new Error(
-      `GitHub-Anfragelimit erreicht. Bitte ${minutes ? `in etwa ${minutes} Minuten` : 'später'} erneut versuchen.`,
+      `GitHub rate limit reached. Please try again ${minutes ? `in about ${minutes} minutes` : 'later'}.`,
     )
   }
   if (response.status === 404)
     return new Error(
       file
-        ? 'Eine Quelldatei ist bei GitHub nicht verfügbar. Bitte den Import erneut starten.'
-        : 'Repository nicht gefunden oder nicht öffentlich. Bitte die GitHub-Adresse prüfen.',
+        ? 'A source file is unavailable on GitHub. Please import the repository again.'
+        : 'Repository not found or not public. Please check the GitHub address.',
     )
-  if (response.status === 409)
-    return new Error('Dieses Repository ist leer oder hat noch keinen Commit.')
+  if (response.status === 409) return new Error('This repository is empty or has no commits yet.')
   if (response.status === 403)
-    return new Error('GitHub hat die Anfrage abgewiesen. Bitte später erneut versuchen.')
-  return new Error(
-    `GitHub ist momentan nicht erreichbar (HTTP ${response.status}). Bitte erneut versuchen.`,
-  )
+    return new Error('GitHub rejected the request. Please try again later.')
+  return new Error(`GitHub is currently unavailable (HTTP ${response.status}). Please try again.`)
 }
 
 async function readSource(response: Response, signal: AbortSignal): Promise<string> {
   if (Number(response.headers.get('content-length')) > MAX_MEASUREMENT_BYTES) {
     await response.body?.cancel()
-    throw new Error('Eine Quelldatei überschreitet das Messlimit von 8 MiB.')
+    throw new Error('A source file exceeds the 8 MiB measurement limit.')
   }
   const reader = response.body?.getReader()
-  if (!reader) throw new Error('GitHub hat keinen Dateiinhalt geliefert. Bitte erneut versuchen.')
+  if (!reader) throw new Error('GitHub returned no file content. Please try again.')
   const decoder = new TextDecoder()
   const text: string[] = []
   let size = 0
@@ -95,7 +92,7 @@ async function readSource(response: Response, signal: AbortSignal): Promise<stri
       if (done) break
       size += value.byteLength
       if (size > MAX_MEASUREMENT_BYTES)
-        throw new Error('Eine Quelldatei überschreitet das Messlimit von 8 MiB.')
+        throw new Error('A source file exceeds the 8 MiB measurement limit.')
       text.push(decoder.decode(value, { stream: true }))
     }
     text.push(decoder.decode())
@@ -140,7 +137,7 @@ export async function fetchGitHubRepository(
       typeof metadata.full_name !== 'string' ||
       typeof metadata.default_branch !== 'string'
     )
-      throw new Error('GitHub hat keine öffentlichen Repository-Daten geliefert.')
+      throw new Error('GitHub returned no public repository data.')
     const name = parseGitHubRepository(metadata.full_name)
     const base = `https://api.github.com/repos/${name}`
     const branch = await (
@@ -154,12 +151,11 @@ export async function fetchGitHubRepository(
       typeof treeSha !== 'string' ||
       !/^[a-f\d]{40,64}$/i.test(treeSha)
     )
-      throw new Error('GitHub hat keinen gültigen Commit geliefert.')
+      throw new Error('GitHub returned no valid commit.')
     const tree = await (await request(`${base}/git/trees/${treeSha}?recursive=1`)).json()
     if (tree.truncated)
-      throw new Error('Die Dateistruktur dieses Repositories ist zu groß für den Browser-Import.')
-    if (!Array.isArray(tree.tree))
-      throw new Error('GitHub hat keine gültige Dateistruktur geliefert.')
+      throw new Error('This repository file tree is too large to import in the browser.')
+    if (!Array.isArray(tree.tree)) throw new Error('GitHub returned an invalid file tree.')
     const files: TreeEntry[] = tree.tree
       .filter(
         (entry: TreeEntry) =>
@@ -172,27 +168,23 @@ export async function fetchGitHubRepository(
           entry.size >= 0,
       )
       .sort((a: TreeEntry, b: TreeEntry) => a.path.localeCompare(b.path, 'en'))
-    if (files.length === 0)
-      throw new Error('Keine unterstützten Quelldateien in diesem Repository gefunden.')
+    if (files.length === 0) throw new Error('No supported source files found in this repository.')
     signal.throwIfAborted()
     const modules = files.map((file) => describeSourceFile(file.path, file.size)!)
     const snapshot = createSourceRepository(name, 'github', modules)
     snapshot.url = `https://github.com/${name}`
     snapshot.revision = { branch: metadata.default_branch, commit }
     snapshot.sizeMetric = 'bytes'
-    snapshot.notice = `Alle ${modules.length.toLocaleString('de-DE')} Quelldateien der unterstützten Dateitypen. Gebäudehöhe = Dateigröße. Codezeilen werden beim Öffnen eines Gebäudes gemessen.`
     options.onProgress?.(modules.length, modules.length)
     signal.throwIfAborted()
     return snapshot
   } catch (error) {
     if (timedOut)
-      throw new Error(
-        'Das Laden dauert zu lange. Bitte erneut versuchen oder ein kleineres Repository wählen.',
-      )
+      throw new Error('Loading timed out. Please try again or choose a smaller repository.')
     if (options.signal?.aborted) throw options.signal.reason
     if (error instanceof TypeError)
       throw new Error(
-        'Verbindung zu GitHub fehlgeschlagen. Bitte Internetverbindung prüfen und erneut versuchen.',
+        'Could not connect to GitHub. Please check your internet connection and try again.',
       )
     throw error
   } finally {
@@ -216,9 +208,9 @@ export async function fetchGitHubFileLines(
     !/^[a-f\d]{40,64}$/i.test(commit) ||
     !sourceLanguage(module.path)
   )
-    throw new Error('Die Quelldatei kann diesem GitHub-Stand nicht zugeordnet werden.')
+    throw new Error('This source file cannot be matched to the imported GitHub commit.')
   if ((module.metrics.bytes ?? 0) > MAX_MEASUREMENT_BYTES)
-    throw new Error('Datei größer als 8 MiB. Codezeilen können hier nicht gemessen werden.')
+    throw new Error('This file exceeds 8 MiB. Lines of code cannot be measured here.')
   const controller = new AbortController()
   const abort = () => controller.abort(signal?.reason)
   signal?.addEventListener('abort', abort, { once: true })
@@ -239,13 +231,13 @@ export async function fetchGitHubFileLines(
     if (!response.ok) throw httpError(response, true)
     const measured = measureSourceFile(module.path, await readSource(response, controller.signal))
     if (!measured || measured.metrics.lines === null)
-      throw new Error('Die Datei enthält Binärdaten. Codezeilen können nicht gemessen werden.')
+      throw new Error('This file contains binary data. Lines of code cannot be measured.')
     return measured.metrics.lines
   } catch (error) {
-    if (timedOut) throw new Error('Die Messung dauert zu lange. Bitte erneut versuchen.')
+    if (timedOut) throw new Error('Measurement timed out. Please try again.')
     if (signal?.aborted) throw signal.reason
     if (error instanceof TypeError)
-      throw new Error('Quelldatei konnte nicht geladen werden. Bitte die Verbindung prüfen.')
+      throw new Error('Could not load the source file. Please check your connection.')
     throw error
   } finally {
     clearTimeout(timer)
