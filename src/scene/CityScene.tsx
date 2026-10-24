@@ -25,7 +25,7 @@ import type { OrbitControls as OrbitControlsImpl } from 'three-stdlib'
 import type { CityLayout } from '../city/types'
 import type { Instance, Shape } from './primitives'
 import { compileCity } from './compileCity'
-import { cameraZoom } from './camera'
+import { cameraAngles, cameraZoom, overviewDirection } from './camera'
 
 export interface CameraAction {
   type: 'reset' | 'in' | 'out' | 'rotate'
@@ -160,7 +160,12 @@ function BuildingPicking({
   )
 }
 
-function CameraRig({ size, action }: { size: number; action: CameraAction }) {
+function CameraRig({
+  city,
+  selectedId,
+  action,
+}: Pick<Props, 'city' | 'selectedId'> & { action: CameraAction }) {
+  const size = city.size
   const controls = useRef<OrbitControlsImpl>(null)
   const { camera, size: viewport, invalidate, gl } = useThree()
   const {
@@ -172,10 +177,11 @@ function CameraRig({ size, action }: { size: number; action: CameraAction }) {
   const reportZoom = useCallback(() => {
     gl.domElement.dataset.far = String((camera as OrthographicCamera).far)
     gl.domElement.dataset.zoom = ((camera as OrthographicCamera).zoom / baseZoom).toFixed(2)
+    gl.domElement.dataset.polar = String(controls.current?.getPolarAngle() ?? 0)
   }, [camera, gl, baseZoom])
   useEffect(() => {
     const ortho = camera as OrthographicCamera
-    ortho.position.set(size * 0.85, size * 1.15, size)
+    ortho.position.set(...overviewDirection).multiplyScalar(size)
     ortho.zoom = baseZoom
     ortho.far = far
     ortho.lookAt(0, 1, 0)
@@ -188,7 +194,7 @@ function CameraRig({ size, action }: { size: number; action: CameraAction }) {
   useEffect(() => {
     const ortho = camera as OrthographicCamera
     if (action.type === 'reset') {
-      ortho.position.set(size * 0.85, size * 1.15, size)
+      ortho.position.set(...overviewDirection).multiplyScalar(size)
       ortho.zoom = baseZoom
       controls.current?.target.set(0, 1, 0)
     } else if (action.type === 'rotate') {
@@ -210,6 +216,24 @@ function CameraRig({ size, action }: { size: number; action: CameraAction }) {
     // Actions are commands; viewport and city changes are handled separately above.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [action])
+  useEffect(() => {
+    const building = city.buildings.find((building) => building.id === selectedId)
+    const orbit = controls.current
+    if (!building || !orbit) return
+    const target = new Vector3(building.position[0], building.height / 2, building.position[2])
+    const ortho = camera as OrthographicCamera
+    ortho.position.add(target.clone().sub(orbit.target))
+    orbit.target.copy(target)
+    // A file selected from a many-thousand-building overview must be recognisable.
+    ortho.zoom = Math.max(
+      ortho.zoom,
+      Math.min(maxZoom, Math.min(viewport.width, viewport.height) / 90),
+    )
+    ortho.updateProjectionMatrix()
+    orbit.update()
+    reportZoom()
+    invalidate()
+  }, [city, selectedId, camera, maxZoom, viewport.width, viewport.height, reportZoom, invalidate])
   return (
     <OrbitControls
       ref={controls}
@@ -220,8 +244,8 @@ function CameraRig({ size, action }: { size: number; action: CameraAction }) {
       maxZoom={maxZoom}
       zoomToCursor
       onChange={reportZoom}
-      minPolarAngle={0.12}
-      maxPolarAngle={Math.PI / 2.15}
+      minPolarAngle={cameraAngles.min}
+      maxPolarAngle={cameraAngles.max}
       screenSpacePanning
       target={[0, 1, 0]}
     />
@@ -248,11 +272,11 @@ function SceneContent({ city, selectedId, onSelect, cameraAction, focusDistrict,
   }, [onReady])
   return (
     <>
-      <ambientLight intensity={0.7} />
-      <hemisphereLight args={['#fff7e0', '#71877a', 1.3]} />
+      <ambientLight intensity={0.4} />
+      <hemisphereLight args={['#fff7e0', '#71877a', 0.8]} />
       <directionalLight
         position={[-city.size * 0.5, Math.max(70, city.size * 0.9), city.size * 0.4]}
-        intensity={2.7}
+        intensity={2.1}
         castShadow
         shadow-mapSize={[2048, 2048]}
         shadow-camera-left={-city.size * 0.8}
@@ -263,7 +287,7 @@ function SceneContent({ city, selectedId, onSelect, cameraAction, focusDistrict,
         shadow-normalBias={0.16}
         shadow-bias={-0.0002}
       />
-      <CameraRig size={city.size} action={cameraAction} />
+      <CameraRig city={city} selectedId={selectedId} action={cameraAction} />
       <mesh rotation={[-Math.PI / 2, 0, 0]} position={[0, -2.1, 0]} receiveShadow>
         <planeGeometry args={[3000, 3000]} />
         <meshStandardMaterial color="#e6ebdf" roughness={1} />

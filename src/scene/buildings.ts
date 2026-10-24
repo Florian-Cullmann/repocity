@@ -22,6 +22,9 @@ export function addBuilding(geometry: CityGeometry, building: CityBuilding, comp
   }
   const [x, y, z] = building.position
   const { width: w, depth: d, height: h, floors, style } = building
+  const storey = h / floors
+  const setbackAt = (floor: number) =>
+    setback ? Math.min(Math.floor(floor / 2) * 0.4, Math.min(w, d) * 0.4) : 0
   const rng = randomFromSeed(`${building.id}:materials`)
   const color =
     '#' + new Color(building.color).lerp(new Color('#e4d8c4'), rng() * 0.4).getHexString()
@@ -52,7 +55,7 @@ export function addBuilding(geometry: CityGeometry, building: CityBuilding, comp
       }
     }
     for (let f = 2; f < floors; f += 3) {
-      add(round ? 'cylinder' : 'box', [x, y + f * 1.12, z], [w + 0.1, 0.13, d + 0.1], slab)
+      add(round ? 'cylinder' : 'box', [x, y + f * storey, z], [w + 0.1, 0.13, d + 0.1], slab)
     }
     if (style === 'gable' && floors <= 5) {
       add('roof', [x, y + h + 0.7, z], [(w + 0.4) * 1.42, 1.4, (d + 0.4) * 1.42], roof, [
@@ -74,16 +77,16 @@ export function addBuilding(geometry: CityGeometry, building: CityBuilding, comp
   // Octagonal apartment towers contrast with townhouses and stepped offices.
   if (round) {
     for (let f = 0; f < floors; f++) {
-      const fy = y + f * 1.12
-      add('cylinder', [x, fy + 0.6, z], [w, 1.1, d], color)
-      add('cylinder', [x, fy + 0.66, z], [w + 0.025, 0.55, d + 0.025], glass)
-      add('cylinder', [x, fy + 1.12, z], [w + 0.4, 0.14, d + 0.4], cream)
+      const fy = y + f * storey
+      add('cylinder', [x, fy + storey / 2, z], [w, storey - 0.02, d], color)
+      add('cylinder', [x, fy + storey * 0.56, z], [w + 0.025, storey * 0.5, d + 0.025], glass)
+      add('cylinder', [x, fy + storey, z], [w + 0.4, 0.14, d + 0.4], cream)
       for (let pillar = 0; pillar < 8; pillar++) {
         const angle = (pillar * Math.PI) / 4
         add(
           'box',
-          [x + (Math.sin(angle) * w) / 2, fy + 0.6, z + (Math.cos(angle) * d) / 2],
-          [0.18, 1.12, 0.18],
+          [x + (Math.sin(angle) * w) / 2, fy + storey / 2, z + (Math.cos(angle) * d) / 2],
+          [0.18, storey, 0.18],
           color,
           [0, angle, 0],
         )
@@ -100,32 +103,32 @@ export function addBuilding(geometry: CityGeometry, building: CityBuilding, comp
   }
   // Stacked volumes, balconies, contrasting cornices and recessed windows.
   for (let f = 0; f < floors; f++) {
-    const inset = setback ? Math.floor(f / 2) * 0.4 : 0
+    const inset = setbackAt(f)
     const fw = w - inset
     const fd = d - inset
-    const fy = y + f * 1.12
-    add('box', [x, fy + 0.62, z], [fw, 1.05, fd], color)
-    add('box', [x, fy + 1.12, z], [fw + 0.12, 0.09, fd + 0.12], f === floors - 1 ? cream : color)
+    const fy = y + f * storey
+    add('box', [x, fy + storey / 2, z], [fw, storey - 0.07, fd], color)
+    add('box', [x, fy + storey, z], [fw + 0.12, 0.09, fd + 0.12], f === floors - 1 ? cream : color)
     for (let window = 0; window < 3; window++) {
       const offsetX = (window - 1) * fw * 0.27
       const offsetZ = (window - 1) * fd * 0.27
       for (const sign of [-1, 1]) {
         add(
           'box',
-          [x + offsetX, fy + 0.62, z + sign * (fd / 2 + 0.016)],
-          [fw * 0.18, 0.57, 0.045],
+          [x + offsetX, fy + storey * 0.55, z + sign * (fd / 2 + 0.016)],
+          [fw * 0.18, storey * 0.5, 0.045],
           glass,
         )
         add(
           'box',
-          [x + sign * (fw / 2 + 0.016), fy + 0.62, z + offsetZ],
-          [0.045, 0.57, fd * 0.18],
+          [x + sign * (fw / 2 + 0.016), fy + storey * 0.55, z + offsetZ],
+          [0.045, storey * 0.5, fd * 0.18],
           glass,
         )
         if (style === 'courtyard' && f % 2 === 1) {
           add(
             'box',
-            [x + offsetX, fy + 0.39, z + sign * (fd / 2 + 0.16)],
+            [x + offsetX, fy + storey * 0.3, z + sign * (fd / 2 + 0.16)],
             [fw * 0.22, 0.15, 0.4],
             cream,
           )
@@ -134,11 +137,16 @@ export function addBuilding(geometry: CityGeometry, building: CityBuilding, comp
     }
     if (style === 'courtyard') {
       for (const sign of [-1, 1])
-        add('box', [x + sign * w * 0.4, fy + 0.6, z + d / 2 + 0.1], [0.2, 1.12, 0.25], cream)
+        add(
+          'box',
+          [x + sign * w * 0.4, fy + storey / 2, z + d / 2 + 0.1],
+          [0.2, storey, 0.25],
+          cream,
+        )
     }
   }
-  const roofW = w - (setback ? Math.floor((floors - 1) / 2) * 0.4 : 0)
-  const roofD = d - (setback ? Math.floor((floors - 1) / 2) * 0.4 : 0)
+  const roofW = w - setbackAt(floors - 1)
+  const roofD = d - setbackAt(floors - 1)
   const top = y + h + 0.1
   add('box', [x, y + 0.62, z + d / 2 + 0.05], [0.7, 1.05, 0.08], '#254f50')
   add(

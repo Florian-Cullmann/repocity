@@ -27,6 +27,16 @@ test('renders WebGL, picks a real building, explores modules and regenerates det
   await page.screenshot({ animations: 'disabled', path: 'test-results/repocity-desktop.png' })
   // Probe actual screen coordinates through the WebGL raycaster, not a mocked event.
   const bounds = (await page.locator('canvas').boundingBox())!
+  const canvas = page.locator('canvas')
+  const center = { x: bounds.x + bounds.width * 0.5, y: bounds.y + bounds.height * 0.5 }
+  await page.mouse.move(center.x, center.y)
+  await page.mouse.down()
+  await page.mouse.move(center.x, center.y + 350, { steps: 4 })
+  await page.mouse.up()
+  await expect
+    .poll(async () => Number(await canvas.getAttribute('data-polar')))
+    .toBeGreaterThanOrEqual(Math.PI / 4 - 0.001)
+  await page.getByRole('button', { name: 'Reset view', exact: true }).click()
   let picked = false
   for (const x of [0.5, 0.43, 0.57, 0.35, 0.65]) {
     for (const y of [0.45, 0.53, 0.38, 0.6]) {

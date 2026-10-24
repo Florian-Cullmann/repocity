@@ -36,7 +36,7 @@ export function frontagePlots(block: CityBlock) {
   ).flat()
 }
 
-/** A river, cross-town boulevards and independently subdivided neighbourhoods. */
+/** Straight neighbourhood streets beside an independently meandering river. */
 export function createPlan(extent: number, seed: string) {
   const rng = randomFromSeed(`${seed}:streets`)
   const half = extent / 2
@@ -46,8 +46,10 @@ export function createPlan(extent: number, seed: string) {
   const edges = [-half]
   for (const weight of weights) edges.push(edges.at(-1)! + (extent * weight) / sum)
   const phase = rng() * Math.PI * 2
-  const bends = edges.map((z) => Math.sin((z / extent) * 5 + phase) * extent * 0.065)
-  const riverX = -extent * 0.16
+  // Bound bends in world units: large repositories must not become a warped sheet.
+  const amplitude = Math.min(18, extent * 0.065)
+  const bends = edges.map((z) => Math.sin((z / extent) * 5 + phase) * amplitude)
+  const riverX = -Math.max(0, extent * 0.16 - 14)
   const river = {
     points: edges.map((z, i) => [riverX + bends[i], z] as [number, number]),
     width: Math.min(14, 7 + extent * 0.008),
@@ -59,9 +61,11 @@ export function createPlan(extent: number, seed: string) {
   for (let band = 0; band < bands; band++) {
     const z0 = edges[band],
       z1 = edges[band + 1]
-    const shear = (bends[band + 1] - bends[band]) / (z1 - z0)
-    const offset = (z: number) => bends[band] + shear * (z - z0)
-    const point = (x: number, z: number): [number, number] => [x + offset(z), z]
+    // Each bank reserves the whole river envelope. Buildings remain rectangular;
+    // the varying space beside the water becomes a riverside greenway.
+    const west = riverX + Math.min(bends[band], bends[band + 1]) - corridor - 4
+    const east = riverX + Math.max(bends[band], bends[band + 1]) + corridor + 4
+    const point = (x: number, z: number): [number, number] => [x, z]
     const split = (left: number, right: number, top: number, bottom: number, depth = 0) => {
       const w = right - left,
         d = bottom - top
@@ -91,11 +95,11 @@ export function createPlan(extent: number, seed: string) {
         const z = (top + bottom) / 2
         blocks.push({
           id: `parcel-${blocks.length}`,
-          x: (left + right) / 2 + offset(z),
+          x: (left + right) / 2,
           z,
           width: w,
           depth: d,
-          shear,
+          shear: 0,
           park: false,
           kind: 'buildings',
         })
@@ -103,10 +107,10 @@ export function createPlan(extent: number, seed: string) {
     }
     const top = z0 + 2.8,
       bottom = z1 - 2.8
-    split(-half + 4.5, riverX - corridor - 4, top, bottom)
-    split(riverX + corridor + 4, half - 4.5, top, bottom)
+    split(-half + 4.5, west, top, bottom)
+    split(east, half - 4.5, top, bottom)
     // Quays connect side streets to bridges; perimeter streets close the network.
-    for (const x of [-half + 2.5, riverX - corridor - 2, riverX + corridor + 2, half - 2.5]) {
+    for (const x of [-half + 2.5, west + 2, east - 2, half - 2.5]) {
       roads.push({
         from: point(x, z0),
         to: point(x, z1),
@@ -120,13 +124,13 @@ export function createPlan(extent: number, seed: string) {
     const z = edges[i],
       bend = bends[i]
     for (const [left, right, bridge] of [
-      [-half + 2.5, riverX - corridor, false],
-      [riverX - corridor, riverX + corridor, true],
-      [riverX + corridor, half - 2.5, false],
+      [-half + 2.5, riverX + bend - corridor, false],
+      [riverX + bend - corridor, riverX + bend + corridor, true],
+      [riverX + bend + corridor, half - 2.5, false],
     ] as const) {
       roads.push({
-        from: [left + bend, z],
-        to: [right + bend, z],
+        from: [left, z],
+        to: [right, z],
         width: 5.6,
         kind: 'avenue',
         bridge,

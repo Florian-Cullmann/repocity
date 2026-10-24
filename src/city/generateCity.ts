@@ -64,21 +64,21 @@ export function generateCity(repository: RepositorySnapshot, config: CityConfig)
       const floors = Math.max(
         2,
         Math.min(
-          13,
+          18,
           Math.round(
             2 +
               Math.log2(
                 1 +
                   (repository.sizeMetric === 'bytes'
-                    ? module.metrics.bytes! / 4800
-                    : module.metrics.lines! / 120),
+                    ? module.metrics.bytes! / 1600
+                    : module.metrics.lines! / 80),
               ),
           ),
         ),
       )
       const district = districtsById.get(module.districtId)!
       const styles =
-        floors > 8
+        floors > 6
           ? (['tower', 'terrace', 'courtyard', 'terrace'] as const)
           : (['gable', 'courtyard', 'terrace', 'gable'] as const)
       buildings.push({
@@ -90,7 +90,7 @@ export function generateCity(repository: RepositorySnapshot, config: CityConfig)
         rotation: plot.rotation,
         width: (plot.frontage - 1.1) * (0.94 + rng() * 0.06),
         depth: plot.depth * (0.85 + rng() * 0.15),
-        height: floors * 1.12,
+        height: floors * 1.9,
         floors,
         style: styles[Math.floor(rng() * styles.length)],
         color: district.color,
@@ -133,14 +133,14 @@ export function generateCity(repository: RepositorySnapshot, config: CityConfig)
     trees.push({
       x,
       z,
-      height: 1.7 + rng() * 1.4,
+      height: 2.4 + rng() * 1.8,
       color: ['#729c43', '#93b64e', '#497e50', '#b4bd64'][Math.floor(rng() * 4)],
       conifer: rng() > 0.8,
     })
   for (const block of blocks) {
     const point = (x: number, z: number) => tree(block.x + x + block.shear * z, block.z + z)
     if (block.park) {
-      for (let i = 0; i < Math.floor((block.width * block.depth) / 14); i++) {
+      for (let i = 0; i < Math.floor((block.width * block.depth) / 38); i++) {
         const x = (rng() - 0.5) * (block.width - 4)
         const z = (rng() - 0.5) * (block.depth - 4)
         if (Math.abs(x) > 4.5 && Math.abs(z) > 6) point(x, z)
@@ -160,19 +160,19 @@ export function generateCity(repository: RepositorySnapshot, config: CityConfig)
       for (const side of [-1, 1]) tree(x + side * (river.width / 2 + 1.7), z)
     }
   }
-  const size = extent + Math.max(...river.points.map(([x]) => Math.abs(x - plan.riverX))) * 2 + 7
-  // Wooded edges soften the footprint instead of ending every street at a bare board.
-  for (let x = -size / 2 + 3; x < size / 2 - 3; x += 4) {
-    for (let z = -size / 2 + 3; z < size / 2 - 3; z += 4) {
-      const next = river.points.findIndex((point) => point[1] > z)
-      const segment = Math.max(0, (next === -1 ? river.points.length - 1 : next) - 1)
-      const [a, b] = [river.points[segment], river.points[segment + 1]]
-      const bend =
-        a[0] - plan.riverX + (b[0] - a[0]) * Math.max(0, Math.min(1, (z - a[1]) / (b[1] - a[1])))
-      const outside = Math.abs(x - bend) > extent / 2 + 2 || Math.abs(z) > extent / 2 + 3
-      if (outside && Math.abs(x - (plan.riverX + bend)) > river.width / 2 + 4 && rng() > 0.22) {
-        tree(x + (rng() - 0.5) * 2, z + (rng() - 0.5) * 2)
-      }
+  const size = extent + 18
+  // A narrow, scattered tree belt replaces the dense gridded forest carpet.
+  // Its cost grows with the perimeter rather than the area of the city.
+  for (const side of [-1, 1]) {
+    for (let p = -extent / 2; p < extent / 2; p += 5) {
+      const edge = () => side * (extent / 2 + 4 + rng() * 2)
+      if (rng() > 0.3) tree(edge(), p + rng() * 2)
+      if (
+        Math.abs(p - river.points[side === -1 ? 0 : river.points.length - 1][0]) >
+          river.width / 2 + 5 &&
+        rng() > 0.3
+      )
+        tree(p + rng() * 2, edge())
     }
   }
   return {

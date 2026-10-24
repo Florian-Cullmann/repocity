@@ -7,6 +7,38 @@ const files: Record<string, string> = {
   'src/ui/Button.tsx': 'export const Button = () => null\n',
 }
 
+/** Check actual pixels in the unobstructed scene, not just successful UI updates. */
+async function expectRenderedCity(page: Page) {
+  const bounds = (await page.locator('canvas').boundingBox())!
+  const screenshot = await page.screenshot({
+    clip: {
+      x: bounds.x + bounds.width * 0.2,
+      y: bounds.y + bounds.height * 0.3,
+      width: bounds.width * 0.45,
+      height: bounds.height * 0.45,
+    },
+  })
+  const colors = await page.evaluate(async (png) => {
+    const image = new Image()
+    image.src = `data:image/png;base64,${png}`
+    await image.decode()
+    const canvas = document.createElement('canvas')
+    canvas.width = image.width
+    canvas.height = image.height
+    const context = canvas.getContext('2d')!
+    context.drawImage(image, 0, 0)
+    const pixels = context.getImageData(0, 0, canvas.width, canvas.height).data
+    const colors = new Set<number>()
+    for (let i = 0; i < pixels.length; i += 64)
+      colors.add((pixels[i] << 16) | (pixels[i + 1] << 8) | pixels[i + 2])
+    return colors.size
+  }, screenshot.toString('base64'))
+  expect(
+    colors,
+    'the rendered city must contain more than the background and selection marker',
+  ).toBeGreaterThan(200)
+}
+
 async function mockGitHub(page: Page, beforeMetadata?: () => Promise<void>) {
   await page.route('https://api.github.com/**', async (route) => {
     const url = route.request().url()
@@ -204,6 +236,7 @@ test('shows all 5905 files without source downloads and measures errors without 
   await expect(page.locator('#module-select option')).toHaveCount(5906)
   await expect(page.getByRole('button', { name: /src\/core.*5000/ })).toBeVisible()
   await expect(page.getByRole('button', { name: /src\/ui.*905/ })).toBeVisible()
+  await expectRenderedCity(page)
   expect(downloads).toEqual([])
   await page.getByLabel('Explore a module directly').selectOption('src/ui/file-5904.ts')
   const details = page.getByLabel('Building information', { exact: true })
@@ -214,6 +247,11 @@ test('shows all 5905 files without source downloads and measures errors without 
   await details.getByRole('button', { name: 'Measure again' }).click()
   await expect(details.locator('.module-metrics strong').first()).toHaveText('2')
   await expect(page.locator('.city-stats strong').first()).toHaveText('5905')
+  await expect
+    .poll(async () => Number(await page.locator('canvas').getAttribute('data-zoom')))
+    .toBeGreaterThan(4)
+  await expectRenderedCity(page)
+  await page.screenshot({ animations: 'disabled', path: 'test-results/repocity-large-focused.png' })
   await page.getByLabel('Close building information').click()
   await expect
     .poll(async () => Number(await page.locator('canvas').getAttribute('data-far')))
@@ -222,6 +260,7 @@ test('shows all 5905 files without source downloads and measures errors without 
     await page.getByRole('button', { name: 'Rotate city', exact: true }).click()
   await page.screenshot({ animations: 'disabled', path: 'test-results/repocity-large-rotated.png' })
   await page.getByRole('button', { name: 'Reset view', exact: true }).click()
+  await expectRenderedCity(page)
   await page.screenshot({
     animations: 'disabled',
     path: 'test-results/repocity-complete-repository.png',

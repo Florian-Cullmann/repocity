@@ -60,18 +60,20 @@ describe('deterministic city generation', () => {
       expect(city.blocks.some((b) => b.park)).toBe(true)
     },
   )
-  it('creates varied parcels, angled streets, T-junctions, a civic square and river bridges', () => {
+  it('creates varied rectangular parcels, connected T-junctions, a civic square and river bridges', () => {
     const city = generateCity(repo, { seed: 'urban' })
     expect(
       new Set(city.blocks.map((block) => `${Math.round(block.width)}:${Math.round(block.depth)}`))
         .size,
     ).toBeGreaterThan(4)
     expect(
-      city.roads.some(
+      city.roads.every(
         (road) =>
-          Math.abs(road.to[0] - road.from[0]) > 0.1 && Math.abs(road.to[1] - road.from[1]) > 1,
+          Math.abs(road.to[0] - road.from[0]) < 0.001 ||
+          Math.abs(road.to[1] - road.from[1]) < 0.001,
       ),
     ).toBe(true)
+    expect(city.blocks.every((block) => block.shear === 0)).toBe(true)
     expect(city.blocks.some((block) => block.kind === 'plaza')).toBe(true)
     expect(city.roads.filter((road) => road.bridge)).toHaveLength(city.river.points.length)
     const connected = new Set([0])
@@ -136,6 +138,31 @@ describe('deterministic city generation', () => {
       const size = city.size
       expect(
         city.river.points.some(([x]) => Math.abs(x - city.river.points[0][0]) > size * 0.02),
+      ).toBe(true)
+    },
+  )
+  it.each(['hello-world', 'ElectricJack/agent-queue', 'riverfront'])(
+    'keeps a large city straight and its river clear of buildings (%s)',
+    (seed) => {
+      const city = generateCity(createMockRepository('large/repo', 5905), { seed })
+      expect(city.blocks.every((block) => block.shear === 0)).toBe(true)
+      const riverXs = city.river.points.map(([x]) => x)
+      expect(Math.max(...riverXs) - Math.min(...riverXs)).toBeLessThanOrEqual(36)
+      for (const building of city.buildings)
+        for (const point of footprint(building, 0.25))
+          for (let i = 1; i < city.river.points.length; i++)
+            expect(
+              pointDistance(point, city.river.points[i - 1], city.river.points[i]),
+            ).toBeGreaterThan(city.river.width / 2 + city.river.promenadeWidth)
+      const edgeTrees = city.trees.filter(
+        (tree) => Math.max(Math.abs(tree.x), Math.abs(tree.z)) > (city.size - 18) / 2,
+      )
+      expect(edgeTrees.length).toBeLessThan(city.size)
+      expect(
+        city.trees.every(
+          (tree) =>
+            Math.max(Math.abs(tree.x), Math.abs(tree.z)) + tree.height * 0.4 < city.size / 2,
+        ),
       ).toBe(true)
     },
   )

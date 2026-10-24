@@ -55,16 +55,16 @@ Run `npm run build` and deploy the contents of `dist/` to a static hosting servi
 - **Pan:** Drag with the right mouse button, or use two fingers.
 - **Zoom:** Use the scroll wheel, pinch gesture, or plus/minus buttons. The scroll wheel zooms towards the pointer. Large repositories support close-ups of individual buildings.
 - **Reset view:** Use the reset button at the bottom right.
-- **Select a module:** Click a building or the miniature map, or use the keyboard-accessible module selector.
+- **Select a module:** Click a building or the miniature map, or use the keyboard-accessible module selector. The camera centres the selected building and zooms close enough to see it, including in large repositories.
 - **Highlight a district:** Click its name in the sidebar; click again to clear the highlight.
 - **Choose data:** Load GitHub data, use the included RepoCity example, or select the fictional demo. The heading and building information identify the active source.
 - **Generate another layout:** Enter a seed and click **Generate city**. In the demo, the repository name controls fictional metrics and the city size controls the building count. The dice button changes the seed input without submitting.
 
 The initial city uses the included RepoCity snapshot and the `hello-world` seed. The form is ready for a GitHub import; network requests start only after submission. A snapshot and seed always reproduce the same streets, architecture, plants, and decoration. Changing the seed changes the layout without changing module identities or metrics.
 
-Compact blocks with buildings on four street frontages replace long parallel housing strips. Independently subdivided neighbourhoods, quays, staggered side streets, and a few wider boulevards form a connected street network with T-junctions and river bridges. Larger files occupy central plots within their district, creating clusters of taller buildings while retaining one shared metric-to-height scale. Courtyard gardens, parks with ponds or play courts, wooded edges, varied roofs, and a civic square break up the built area. The miniature map uses the same roads and building positions.
+Compact, rectangular blocks have buildings on four street frontages. Independently subdivided neighbourhoods, quays, staggered side streets, and a few wider boulevards form a connected street network with T-junctions and river bridges. The river meanders within a reserved greenway; it does not shear the buildings, streets, or city boundary. Its bends stay bounded as repositories grow. Larger files occupy central plots within their district, creating clusters of taller buildings while retaining one shared metric-to-height scale. Courtyard gardens, parks with ponds or play courts, a narrow scattered tree belt, varied roofs, and a civic square break up the built area. The miniature map uses the same roads and building positions.
 
-The camera's depth range grows with the city. Rotating a large repository therefore keeps its far side visible. Close-up zoom is independent of repository size and is available on desktop and mobile.
+The camera starts at an oblique isometric angle and keeps facades visible throughout its orbit. Its overview fits the city footprint and skyline, and its depth range grows with the city. Rotating a large repository therefore keeps its far side visible. Close-up zoom is independent of repository size and is available on desktop and mobile. Reset view returns to the complete overview.
 
 ## Local analysis and CLI
 
@@ -86,7 +86,7 @@ npm run analyze -- /path/to/project --name my-project --output /tmp/project-snap
 
 - **Stable IDs:** Relative source paths identify buildings and remain stable across content changes.
 - **Folder districts:** Under `src`, `app`, and `lib`, files are grouped by the next subdirectory, such as `src/city`. Other files use their top-level folder; project-level files belong to **Project root**.
-- **Measured size:** Local `lines` counts non-empty lines, including comments. Building heights follow a fixed logarithmic scale of 2–13 floors. GitHub snapshots use file sizes in bytes on a separate, consistently applied logarithmic scale.
+- **Measured size:** Local `lines` counts non-empty lines, including comments. Building heights follow a fixed logarithmic scale of 2–18 floors, with 1.9 world units per floor. GitHub snapshots use file sizes in bytes on a separate, consistently applied logarithmic scale.
 - **Supported files:** TypeScript, JavaScript, CSS/SCSS, HTML, Vue, Svelte, Python, Go, Rust, Java, Kotlin, Swift, Ruby, PHP, C/C++, C#, Shell, and SQL.
 - **Exclusions:** Hidden paths, symlinks, `node_modules`, `dist`, `build`, `coverage`, `test-results`, `playwright-report`, `vendor`, `target`, `__pycache__`, `*.min.*`, and `*.generated.*`. Local analysis also skips files exceeding 1 MiB and contents with null bytes. Filters are fixed; `.gitignore` is not evaluated.
 - **Unavailable measurements:** Missing dependencies and coverage use `null`; measured zero values remain distinguishable.
@@ -140,9 +140,9 @@ The batching and demand-rendering approach follows [React Three Fiber's performa
 
 ## Validation
 
-Vitest checks source counting, grouping, filters, symlinks, stable IDs, CLI export, GitHub input validation, commit binding, complete metadata imports, on-demand measurements, download limits, progress, errors, cancellation, and timeouts. Layout tests cover determinism, immutable inputs, module-order independence, complete assignments, non-overlapping buildings, varied compact blocks, four-sided frontages, connected streets, T-junctions, boundaries, missing metrics, and valid geometry. Camera tests check close-up zoom on desktop and mobile and depth visibility through the permitted viewing angles.
+Vitest checks source counting, grouping, filters, symlinks, stable IDs, CLI export, GitHub input validation, commit binding, complete metadata imports, on-demand measurements, download limits, progress, errors, cancellation, and timeouts. Layout tests cover determinism, immutable inputs, module-order independence, complete assignments, non-overlapping buildings, varied rectangular blocks, four-sided frontages, connected streets, T-junctions, river clearance, bounded tree belts, missing metrics, and valid geometry. Camera tests check overview framing, facade visibility, close-up zoom on desktop and mobile, and depth visibility through the permitted viewing angles.
 
-Playwright exercises real WebGL picking, English labels, removal of the introductory copy and import notes, forms, district filters, module selection, camera buttons, mouse-wheel zoom, mobile layouts, GitHub errors and retries, and complete 768- and 5,905-building cities. Large-city screenshots include rotated views. Run with `REPOCITY_E2E_PREVIEW=1` to verify the static production build. Screenshots in `test-results/` are ignored by Git.
+Playwright exercises real WebGL picking, English labels, removal of the introductory copy and import notes, forms, district filters, module selection, camera buttons, mouse-wheel zoom, mobile layouts, GitHub errors and retries, and complete 768- and 5,905-building cities. Pixel checks reject empty rendered scenes after a large import, module selection, and camera reset. Large-city screenshots include rotated views. Run with `REPOCITY_E2E_PREVIEW=1` to verify the static production build. Screenshots in `test-results/` are ignored by Git.
 
 ## License
 
